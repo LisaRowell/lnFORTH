@@ -307,11 +307,7 @@ void String(const char *string) {
     here = ByteIndexToCellIndex(byteHere);
 }
 
-void Semicolon() {
-    Word(";S");
-}
-
-// Since we're token thread, (;CODE) is a little difference in that what follows isn't
+// Since we're token threaded, (;CODE) is a little difference in that what follows isn't
 // machine code, but rather a single token which will become the token of the created word.
 void SemicolonCode(Token token) {
     Word("(;CODE)");
@@ -828,7 +824,7 @@ void DefineSEMICOLON() {
     Word(";S");
     Word("SMUDGE");
     Word("[");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineCONST() {
@@ -874,35 +870,35 @@ void DefinePORIG() {
     Word("LIT");
     Comma(ORIG);
     Word("+");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineONEP() {
     Colon("1+");
     Word("1");
     Word("+");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineTWOP() {
     Colon("2+");
     Word("2");
     Word("+");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineHERE() {
     Colon("HERE");
     Word("DP");
     Word("@");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineALLOT() {
     Colon("ALLOT");
     Word("DP");
     Word("+!");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineCOMMA() {
@@ -911,28 +907,28 @@ void DefineCOMMA() {
     Word("!");
     Word("2");
     Word("ALLOT");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineSUB() {
     Colon("-");
     Word("MINUS");
     Word("+");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineEQUAL() {
     Colon("=");
     Word("-");
     Word("0=");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineULESS() {
     Colon("U<");
     Word("-");
     Word("0<");
-    Semicolon();
+    Word(";S");
 }
 
 void LESS() {
@@ -948,7 +944,7 @@ void DefineGREAT() {
     Colon(">");
     Word("SWAP");
     Word("<");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineROT() {
@@ -957,14 +953,14 @@ void DefineROT() {
     Word("SWAP");
     Word("R>");
     Word("SWAP");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineSPACE() {
     Colon("SPACE");
     Word("BL");
     Word("EMIT");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineDDUP() {
@@ -973,7 +969,7 @@ void DefineDDUP() {
     Word("0BRANCH");
     Comma(2);
     Word("DUP");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineTRAVERSE() {
@@ -990,7 +986,7 @@ void DefineTRAVERSE() {
     Comma(0xfff8);
     Word("SWAP");
     Word("DROP");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineLATEST() {
@@ -998,7 +994,7 @@ void DefineLATEST() {
     Word("CURRENT");
     Word("@");
     Word("@");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineLFA() {
@@ -1006,7 +1002,7 @@ void DefineLFA() {
     Word("LIT");
     Comma(bytesPerCell * 2);
     Word("-");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineCFA() {
@@ -1014,7 +1010,7 @@ void DefineCFA() {
     Word("LIT");
     Comma(bytesPerCell);
     Word("-");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineNFA() {
@@ -1025,7 +1021,7 @@ void DefineNFA() {
     Word("LIT");
     Comma(cellMax);
     Word("TRAVERSE");
-    Semicolon();
+    Word(";S");
 }
 
 // This implementation is a departure from the figFORTH listing used as source
@@ -1053,7 +1049,7 @@ void DefinePFA() {
     Word("LIT");
     Comma(bytesPerCell * 2);
     Word("+");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineSCSP() {
@@ -1061,7 +1057,7 @@ void DefineSCSP() {
     Word("SP@");
     Word("CSP");
     Word("!");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineQERR() {
@@ -1073,7 +1069,7 @@ void DefineQERR() {
     Word("BRANCH");
     Comma(2);
     Word("DROP");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineQCOMP() {
@@ -1084,7 +1080,7 @@ void DefineQCOMP() {
     Word("LIT");
     Comma(0x11);
     Word("?ERROR");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineQEXEC() {
@@ -1094,7 +1090,7 @@ void DefineQEXEC() {
     Word("LIT");
     Comma(0x12);
     Word("?ERROR");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineQPAIRS() {
@@ -1103,7 +1099,7 @@ void DefineQPAIRS() {
     Word("LIT");
     Comma(0x13);
     Word("?ERROR");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineQCSP() {
@@ -1115,7 +1111,7 @@ void DefineQCSP() {
     Word("LIT");
     Comma(0x14);
     Word("?ERROR");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineQLOAD() {
@@ -1125,7 +1121,7 @@ void DefineQLOAD() {
     Word("0=");
     Comma(0x16);
     Word("?ERROR");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineCOMPILE() {
@@ -1139,7 +1135,7 @@ void DefineCOMPILE() {
     Word(">R");
     Word("@");
     Word(",");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineLBRAC() {
@@ -1147,7 +1143,7 @@ void DefineLBRAC() {
     Word("0");
     Word("STATE");
     Word("!");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineRBRAC() {
@@ -1156,7 +1152,7 @@ void DefineRBRAC() {
     Comma(0xc0);
     Word("STATE");
     Word("!");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineSMUDG() {
@@ -1165,7 +1161,7 @@ void DefineSMUDG() {
     Word("LIT");
     Comma(0x20);
     Word("TOGGLE");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineHEX() {
@@ -1174,7 +1170,7 @@ void DefineHEX() {
     Comma(16);
     Word("BASE");
     Word("!");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineDECIMAL() {
@@ -1183,7 +1179,7 @@ void DefineDECIMAL() {
     Comma(10);
     Word("BASE");
     Word("!");
-    Semicolon();
+    Word(";S");
 }
 
 void DefinePSCOD() {
@@ -1193,7 +1189,7 @@ void DefinePSCOD() {
     Word("PFA");
     Word("CFA");
     Word("!");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineSCODE() {
@@ -1203,14 +1199,14 @@ void DefineSCODE() {
     Word("(;CODE)");
     Word("[");
     Word("SMUDGE");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineBUILD() {
     Colon("<BUILDS");
     Word("0");
     Word("CONSTANT");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineDOES() {
@@ -1237,7 +1233,7 @@ void DefineCOUNT() {
     Word("1+");
     Word("SWAP");
     Word("C@");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineTYPE() {
@@ -1257,7 +1253,7 @@ void DefineTYPE() {
     Word("BRANCH");
     Comma(2);
     Word("DROP");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineDTRAI() {
@@ -1282,7 +1278,7 @@ void DefineDTRAI() {
     Word("-");
     Word("(LOOP)");
     Comma(0xfff0);
-    Semicolon();
+    Word(";S");
 }
 
 void DefinePDOTQ() {
@@ -1302,7 +1298,7 @@ void DefinePDOTQ() {
     Word("+");
     Word(">R");
     Word("TYPE");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineDOTQ() {
@@ -1333,7 +1329,7 @@ void DefineDOTQ() {
     Word("HERE");
     Word("COUNT");
     Word("TYPE");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineEXPEC() {
@@ -1389,7 +1385,7 @@ void DefineEXPEC() {
     Word("(LOOP)");
     Comma(0xffd3);
     Word("DROP");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineQUERY() {
@@ -1402,7 +1398,7 @@ void DefineQUERY() {
     Word("0");
     Word("IN");
     Word("!");
-    Semicolon();
+    Word(";S");
 }
 
 // This is special cased by Header to make a one character name with a null
@@ -1435,7 +1431,7 @@ void DefineX() {
     Comma(3);
     Word("R>");
     Word("DROP");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineFILL() {
@@ -1450,21 +1446,21 @@ void DefineFILL() {
     Word("1");
     Word("-");
     Word("CMOVE");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineERASE() {
     Colon("ERASE");
     Word("0");
     Word("FILL");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineBLANK() {
     Colon("BLANKS");
     Word("BL");
     Word("FILL");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineHOLD() {
@@ -1476,7 +1472,7 @@ void DefineHOLD() {
     Word("HLD");
     Word("@");
     Word("C!");
-    Semicolon();
+    Word(";S");
 }
 
 void DefinePAD() {
@@ -1485,7 +1481,7 @@ void DefinePAD() {
     Word("LIT");
     Comma(68);      // PAD is 68 bytes about here.
     Word("+");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineWORD() {
@@ -1523,7 +1519,7 @@ void DefineWORD() {
     Word("1+");
     Word("R>");
     Word("CMOVE");
-    Semicolon();
+    Word(";S");
 }
 
 void DefinePNUMB() {
@@ -1559,7 +1555,7 @@ void DefinePNUMB() {
     Word("BRANCH");
     Comma(0xffe3);
     Word("R>");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineNUMBER() {
@@ -1602,7 +1598,7 @@ void DefineNUMBER() {
     Word("0BRANCH");
     Comma(2);
     Word("DMINUS");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineDFIND() {
@@ -1622,13 +1618,13 @@ void DefineDFIND() {
     Word("HERE");
     Word("LATEST");
     Word("(FIND)");
-    Semicolon();
+    Word(";S");
 }
 
 void DefinePABOR() {
     Colon("(ABORT)");
     Word("ABORT");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineERROR() {
@@ -1651,7 +1647,7 @@ void DefineERROR() {
     Word("BLK");
     Word("@");
     Word("QUIT");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineIDDOT() {
@@ -1677,7 +1673,7 @@ void DefineIDDOT() {
     Word("AND");
     Word("TYPE");
     Word("SPACE");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineCREAT() {
@@ -1726,7 +1722,7 @@ void DefineCREAT() {
     Word("HERE");
     Word("2+");
     Word(",");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineBCOMPILE() {
@@ -1738,7 +1734,7 @@ void DefineBCOMPILE() {
     Word("DROP");
     Word("CFA");
     Word(",");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineLITER() {
@@ -1750,7 +1746,7 @@ void DefineLITER() {
     Word("COMPILE");
     Word("LIT");
     Word(",");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineDLIT() {
@@ -1762,7 +1758,7 @@ void DefineDLIT() {
     Word("SWAP");
     Word("LITERAL");
     Word("LITERAL");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineQSTAC() {
@@ -1780,7 +1776,7 @@ void DefineQSTAC() {
     Word("LIT");
     Comma(7);
     Word("?ERROR");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineINTER() {
@@ -1825,7 +1821,7 @@ void DefineIMMEDIATE() {
     Word("LIT");
     Comma(immediateWordFlag);
     Word("TOGGLE");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineVOCABULARY() {
@@ -1851,7 +1847,7 @@ void DefineVOCABULARY() {
     Word("+");           // End of change
     Word("CONTEXT");
     Word("!");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineFORTH() {
@@ -1870,7 +1866,7 @@ void DefineDEFIN() {
     Word("@");
     Word("CURRENT");
     Word("!");
-    Semicolon();
+    Word(";S");
 }
 
 void DefinePAREN() {
@@ -1878,7 +1874,7 @@ void DefinePAREN() {
     Word("LIT");
     Comma(0x29);
     Word("WORD");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineQUIT() {
@@ -1900,7 +1896,7 @@ void DefineQUIT() {
     String("OK");
     Word("BRANCH");
     Comma(0xfff3);
-    Semicolon();
+    Word(";S");
 }
 
 void DefineABORT() {
@@ -1922,7 +1918,7 @@ void DefineSTOD() {
     Word("DUP");
     Word("0<");
     Word("MINUS");
-    Semicolon();
+    Word(";S");
 }
 
 void DefinePM() {
@@ -1931,7 +1927,7 @@ void DefinePM() {
     Word("0BRANCH");
     Comma(2);
     Word("MINUS");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineDPM() {
@@ -1940,21 +1936,21 @@ void DefineDPM() {
     Word("0BRANCH");
     Comma(2);
     Word("DMINUS");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineABS() {
     Colon("ABS");
     Word("DUP");
     Word("+-");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineDABS() {
     Colon("DABS");
     Word("DUP");
     Word("D+-");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineMIN() {
@@ -1966,7 +1962,7 @@ void DefineMIN() {
     Comma(2);
     Word("SWAP");
     Word("DROP");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineMAX() {
@@ -1978,7 +1974,7 @@ void DefineMAX() {
     Comma(2);
     Word("SWAP");
     Word("DROP");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineMSTAR() {
@@ -1993,7 +1989,7 @@ void DefineMSTAR() {
     Word("U*");
     Word("R>");
     Word("D+-");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineMSLAS() {
@@ -2013,14 +2009,14 @@ void DefineMSLAS() {
     Word("R>");
     Word("+-");
     Word("SWAP");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineSTAR() {
     Colon("*");
     Word("U*");
     Word("DROP");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineSLMOD() {
@@ -2029,21 +2025,21 @@ void DefineSLMOD() {
     Word("S->D");
     Word("R>");
     Word("M/");
-    Semicolon();
+    Word(";S");
 }
 void DefineSLASH() {
     Colon("/");
     Word("/MOD");
     Word("SWAP");
     Word("DROP");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineMOD() {
     Colon("MOD");
     Word("/MOD");
     Word("DROP");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineSSMOD() {
@@ -2052,7 +2048,7 @@ void DefineSSMOD() {
     Word("M*");
     Word("R>");
     Word("M/");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineSSLAS() {
@@ -2060,7 +2056,7 @@ void DefineSSLAS() {
     Word("*/MOD");
     Word("SWAP");
     Word("DROP");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineMSMOD() {
@@ -2074,7 +2070,7 @@ void DefineMSMOD() {
     Word(">R");
     Word("U/");
     Word("R>");
-    Semicolon();
+    Word(";S");
 }
 
 void DefinePBUF() {
@@ -2093,7 +2089,7 @@ void DefinePBUF() {
     Word("PREV");
     Word("@");
     Word("-");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineUPDAT() {
@@ -2107,7 +2103,7 @@ void DefineUPDAT() {
     Word("PREV");
     Word("@");
     Word("!");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineFLUSH() {
@@ -2129,7 +2125,7 @@ void DefineFLUSH() {
     Word("DROP");
     Word("(LOOP)");
     Comma(0xfffb);
-    Semicolon();
+    Word(";S");
 }
 
 void DefineEMPTYBUFFERS() {
@@ -2139,7 +2135,7 @@ void DefineEMPTYBUFFERS() {
     Word("OVER");
     Word("-");
     Word("ERASE");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineDR0() {
@@ -2147,7 +2143,7 @@ void DefineDR0() {
     Word("0");
     Word("OFFSET");
     Word("!");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineDR1() {
@@ -2156,7 +2152,7 @@ void DefineDR1() {
     Comma(SECTR);    // Sectors per drive
     Word("OFFSET");
     Word("!");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineBUFFR() {
@@ -2191,7 +2187,7 @@ void DefineBUFFR() {
     Word("!");
     Word("R>");
     Word("2+");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineBLOCK() {
@@ -2238,7 +2234,7 @@ void DefineBLOCK() {
     Word("R>");
     Word("DROP");
     Word("2+");
-    Semicolon();
+    Word(";S");
 }
 
 void DefinePLINE() {
@@ -2254,7 +2250,7 @@ void DefinePLINE() {
     Word("BLOCK");
     Word("+");
     Word("C/L");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineDLINE() {
@@ -2262,7 +2258,7 @@ void DefineDLINE() {
     Word("(LINE)");
     Word("-TRAILING");
     Word("TYPE");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineMESS() {
@@ -2287,7 +2283,7 @@ void DefineMESS() {
     Word("(.\")");
     String("MSG # ");
     Word(".");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineLOAD() {
@@ -2312,7 +2308,7 @@ void DefineLOAD() {
     Word("R>");
     Word("BLK");
     Word("!");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineNEXTSCREEN() {
@@ -2329,7 +2325,7 @@ void DefineNEXTSCREEN() {
     Word("-");
     Word("BLK");
     Word("+!");
-    Semicolon();
+    Word(";S");
 }
 
 void DDISC() {
@@ -2346,7 +2342,7 @@ void DefineDBCD() {
     Comma(16);
     Word("*");
     Word("OR");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineRSLW() {
@@ -2387,7 +2383,7 @@ void DefineRSLW() {
     Word("LIT");
     Comma(8);
     Word("?ERROR");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineTICK() {
@@ -2398,7 +2394,7 @@ void DefineTICK() {
     Word("?ERROR");
     Word("DROP");
     Word("LITERAL");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineFORG() {
@@ -2452,7 +2448,7 @@ void DefineFORG() {
     Word("R>");
     Word("DP");
     Word("!");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineBACK() {
@@ -2460,7 +2456,7 @@ void DefineBACK() {
     Word("HERE");
     Word("-");
     Word(",");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineBEGIN() {
@@ -2468,7 +2464,7 @@ void DefineBEGIN() {
     Word("?COMP");
     Word("HERE");
     Word("1");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineENDIF() {
@@ -2481,13 +2477,13 @@ void DefineENDIF() {
     Word("-");
     Word("SWAP");
     Word("!");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineTHEN() {
     Colon("THEN", immediateWordFlag);
     Word("ENDIF");
-    Semicolon();
+    Word(";S");
 }
  
 void DefineDO() {
@@ -2496,7 +2492,7 @@ void DefineDO() {
     Word("(DO)");
     Word("HERE");
     Word("3");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineLOOP() {
@@ -2506,7 +2502,7 @@ void DefineLOOP() {
     Word("COMPILE");
     Word("(LOOP)");
     Word("BACK");
-    Semicolon();
+    Word(";S");
 }
 
 void DefinePLOOP() {
@@ -2516,7 +2512,7 @@ void DefinePLOOP() {
     Word("COMPILE");
     Word("(+LOOP)");
     Word("BACK");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineUNTIL() {
@@ -2526,13 +2522,13 @@ void DefineUNTIL() {
     Word("COMPILE");
     Word("0BRANCH");
     Word("BACK");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineEND() {
     Colon("END", immediateWordFlag);
     Word("UNTIL");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineAGAIN() {
@@ -2542,7 +2538,7 @@ void DefineAGAIN() {
     Word("COMPILE");
     Word("BRANCH");
     Word("BACK");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineREPEAT() {
@@ -2555,7 +2551,7 @@ void DefineREPEAT() {
     Word("2");
     Word("-");
     Word("ENDIF");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineIF() {
@@ -2566,7 +2562,7 @@ void DefineIF() {
     Word("0");
     Word(",");
     Word("2");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineELSE() {
@@ -2582,14 +2578,14 @@ void DefineELSE() {
     Word("2");
     Word("ENDIF");
     Word("2");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineWHILE() {
     Colon("WHILE", immediateWordFlag);
     Word("IF");
     Word("2+");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineSPACS() {
@@ -2604,7 +2600,7 @@ void DefineSPACS() {
     Word("SPACE");
     Word("(LOOP)");
     Comma(0xfffe);
-    Semicolon();
+    Word(";S");
 }
 
 void DefineBDIGS() {
@@ -2612,7 +2608,7 @@ void DefineBDIGS() {
     Word("PAD");
     Word("HLD");
     Word("!");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineEDIGS() {
@@ -2624,7 +2620,7 @@ void DefineEDIGS() {
     Word("PAD");
     Word("OVER");
     Word("-");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineSIGN() {
@@ -2636,7 +2632,7 @@ void DefineSIGN() {
     Word("LIT");
     Comma(0x2d);
     Word("HOLD");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineDIG() {
@@ -2658,7 +2654,7 @@ void DefineDIG() {
     Comma(0x30);
     Word("+");
     Word("HOLD");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineDIGS() {
@@ -2670,7 +2666,7 @@ void DefineDIGS() {
     Word("0=");
     Word("0BRANCH");
     Comma(0xfffa);
-    Semicolon();
+    Word(";S");
 }
 
 void DefineDDOTR() {
@@ -2688,7 +2684,7 @@ void DefineDDOTR() {
     Word("-");
     Word("SPACES");
     Word("TYPE");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineDDOT() {
@@ -2696,7 +2692,7 @@ void DefineDDOT() {
     Word("0");
     Word("D.R");
     Word("SPACE");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineDOTR() {
@@ -2705,21 +2701,21 @@ void DefineDOTR() {
     Word("S->D");
     Word("R>");
     Word("D.R");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineDOT() {
     Colon(".");
     Word("S->D");
     Word("D.");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineQUES() {
     Colon("?");
     Word("@");
     Word(".");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineLIST() {
@@ -2748,7 +2744,7 @@ void DefineLIST() {
     Word("(LOOP)");
     Comma(0xfff0);
     Word("CR");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineINDEX() {
@@ -2774,7 +2770,7 @@ void DefineINDEX() {
     Word("LIT");
     Comma(0x0c);    // FORM FEED FOR PRINTER
     Word("EMIT");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineTRIAD() {
@@ -2801,7 +2797,7 @@ void DefineTRIAD() {
     Word("LIT");
     Comma(0x0c);
     Word("EMIT");
-    Semicolon();
+    Word(";S");
 }
 
 void DefineVLIST() {
@@ -2837,7 +2833,7 @@ void DefineVLIST() {
     Word("0BRANCH");
     Comma(0xffea);
     Word("DROP");
-    Semicolon();
+    Word(";S");
 }
 
 void MON() {
