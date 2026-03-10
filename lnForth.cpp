@@ -7,14 +7,26 @@
 #include <map>
 #include <set>
 
+#define CELL_SIZE_32_BITS 1
+
+#ifdef CELL_SIZE_16_BITS
 typedef uint16_t cell_t;
 typedef int16_t scell_t;
 typedef uint32_t double_t;
 typedef int32_t sdouble_t;
-const uint8_t bytesPerCell = sizeof(cell_t);
-const uint8_t bitsPerCell = bytesPerCell * 8;
 const cell_t cellMax = 0xffff;
 const cell_t cellPaddingMask = 0x0001;
+#else
+typedef uint32_t cell_t;
+typedef int32_t scell_t;
+typedef uint64_t double_t;
+typedef int64_t sdouble_t;
+const cell_t cellMax = 0xffffffff;
+const cell_t cellPaddingMask = 0x00000003;
+#endif
+
+const uint8_t bytesPerCell = sizeof(cell_t);
+const uint8_t bitsPerCell = bytesPerCell * 8;
 
 const size_t dataStackSize = 256;
 const size_t returnStackSize = 256;
@@ -106,26 +118,26 @@ const cell_t DAREA = UAREA - BMAG; // Disk buffer area
 const cell_t SECTR = 800;          // REVISIT!!!
 const cell_t SECTL = 1600;          // REVISIT!!!
 
-const cell_t tibUserIndex     = 0x00;
-const cell_t widthUserIndex   = 0x02;
-const cell_t warningUserIndex = 0x04;
-const cell_t fenceUserIndex   = 0x06;
-const cell_t dpUserIndex      = 0x08;
-const cell_t voclUserIndex    = 0x0a;
-const cell_t blkUserIndex     = 0x16;
-const cell_t inUserIndex      = 0x18;
-const cell_t outUserIndex     = 0x1a;
-const cell_t scrUserIndex     = 0x1c;
-const cell_t offsetUserIndex  = 0x1e;
-const cell_t contextUserIndex = 0x20;
-const cell_t currentUserIndex = 0x22;
-const cell_t stateUserIndex   = 0x24;
-const cell_t baseUserIndex    = 0x26;
-const cell_t dplUserIndex     = 0x28;
-const cell_t fldUserIndex     = 0x2a;
-const cell_t cspUserIndex     = 0x2c;
-const cell_t rnumUserIndex    = 0x2e;
-const cell_t hldUserIndex     = 0x30;
+const cell_t tibUserIndex     = 0;
+const cell_t widthUserIndex   = 1;
+const cell_t warningUserIndex = 2;
+const cell_t fenceUserIndex   = 3;
+const cell_t dpUserIndex      = 4;
+const cell_t voclUserIndex    = 5;
+const cell_t blkUserIndex     = 6;
+const cell_t inUserIndex      = 7;
+const cell_t outUserIndex     = 8;
+const cell_t scrUserIndex     = 9;
+const cell_t offsetUserIndex  = 10;
+const cell_t contextUserIndex = 11;
+const cell_t currentUserIndex = 12;
+const cell_t stateUserIndex   = 13;
+const cell_t baseUserIndex    = 14;
+const cell_t dplUserIndex     = 15;
+const cell_t fldUserIndex     = 16;
+const cell_t cspUserIndex     = 17;
+const cell_t rnumUserIndex    = 18;
+const cell_t hldUserIndex     = 19;
 
 cell_t sp;
 cell_t rp;
@@ -245,7 +257,7 @@ void Primitive(const char *name, Token token, uint8_t flags = 0) {
 void User(const char *name, cell_t index, uint8_t flags = 0) {
     Header(name, flags);
     memory.cell[here++] = static_cast<cell_t>(Token::DOUSE);
-    memory.cell[here++] = index;
+    memory.cell[here++] = CellIndexToByteIndex(index);
 }
 
 void Constant(const char *name, cell_t value, uint8_t flags = 0) {
@@ -523,7 +535,7 @@ bool WordNamesMatch(cell_t dictEntry, cell_t wordName) {
 inline uint8_t NameFieldLength(cell_t dictEntry) {
     uint8_t length = (memory.byte[dictEntry] & nameLengthMask) + 1;
     if (length & cellPaddingMask) {
-        length = (length & (uint8_t)(~cellPaddingMask)) + 2;
+        length = (length & (uint8_t)(~cellPaddingMask)) + bytesPerCell;
     }
     return length;
 }
@@ -536,7 +548,8 @@ void PFIND() {
 
     do {
         if (WordNamesMatch(dictEntry, name)) {
-            stack[++sp] = (cell_t)(dictEntry + NameFieldLength(dictEntry) + bytesPerCell * 2);
+            stack[++sp] = (cell_t)(dictEntry + NameFieldLength(dictEntry) +
+                                   bytesPerCell * 2);
             stack[++sp] = memory.byte[dictEntry] & nameLengthMask;
             stack[++sp] = 1;
             return;
@@ -590,7 +603,7 @@ void EMIT() {
     char character = (char)stack[sp--];
     std::cout << character;
 
-    memory.cell[ByteIndexToCellIndex(UAREA + outUserIndex)]++;
+    memory.cell[ByteIndexToCellIndex(UAREA) + outUserIndex]++;
 }
 
 void KEY() {
@@ -2920,7 +2933,7 @@ Label("L3716");
 
 void MON() {
     std::cout << std::endl << "Exiting with stack:";
-    for (cell_t i = 0; i <= sp && sp != 0xffff; i++) {
+    for (cell_t i = 0; i <= sp && sp != cellMax; i++) {
         std::cout << " "<< addrFormat(stack[i]);
     }
     std::cout << std::endl;
@@ -3218,7 +3231,10 @@ inline void executeToken(Token token) {
             MON();
             break;
         default:
-            std::cerr << "Unimplemented token!" << std::endl;
+            std::cerr << "Unimplemented token! (" << static_cast<cell_t>(token)
+                      << ") ip=" << addrFormat(ip) << " w=" << addrFormat(w)
+                      << std::endl;
+
             std::exit(1);
     }
 }
@@ -3230,8 +3246,8 @@ void ExecuteTokenNonInline(Token token) {
 void InitUserMemory() {
     cell_t variablesToInit = memory.cell[ByteIndexToCellIndex(ORIG) + 1];
     for (cell_t i = 0; i < variablesToInit; i++) {
-
-        memory.cell[ByteIndexToCellIndex(UAREA) + i] = memory.cell[ByteIndexToCellIndex(ORIG) + 2 + i];
+        memory.cell[ByteIndexToCellIndex(UAREA) + i] =
+            memory.cell[ByteIndexToCellIndex(ORIG) + 2 + i];
     }
 }
 
@@ -3516,9 +3532,10 @@ int main(int ac, char* av[]) {
         std::exit(1);
     }
 
-    memory.cell[ByteIndexToCellIndex(ORIG + 10)] = CellIndexToByteIndex(here);
-    memory.cell[ByteIndexToCellIndex(ORIG + 12)] = CellIndexToByteIndex(here);
-    memory.cell[ByteIndexToCellIndex(ORIG + 14)] = CellIndexToByteIndex(forthLastWordReference + 1);
+    memory.cell[ByteIndexToCellIndex(ORIG) + 5] = CellIndexToByteIndex(here);
+    memory.cell[ByteIndexToCellIndex(ORIG) + 6] = CellIndexToByteIndex(here);
+    memory.cell[ByteIndexToCellIndex(ORIG) + 7] =
+        CellIndexToByteIndex(forthLastWordReference + 1);
 
     if (dumpDictionary) {
         DumpDictionary();
