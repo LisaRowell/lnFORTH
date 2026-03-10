@@ -143,9 +143,12 @@ std::map<const char *, cell_t> words;
 // initial dictionary, we check for unresolved references and flag them as errors.
 std::map<const char *, std::set<cell_t>> forwardReferences;
 
+// Label database to make writing branches simplar and less error prone
+std::map<const char *, cell_t> labels;
 
 // A mapping to find DOES> entry points while compiling the initial dictionary.
 std::map<const char *, cell_t> doesEntries;
+std::map<const char *, std::set<cell_t>> forwardLabelReferences;
 
 struct addrFormat {
     cell_t cell;
@@ -312,6 +315,60 @@ void String(const char *string) {
 void SemicolonCode(Token token) {
     Word("(;CODE)");
     Comma(static_cast<cell_t>(token));
+}
+
+void Label(const char *name) {
+    //Make sure we're not making a duplicate
+    if (labels.count(name)) {
+        std::cerr << "Attempt to redefine label \"" << name << "\"" << std::endl;
+        std::exit(1);
+    }
+
+    labels[name] = here;
+
+    // If this lavel was used before now we have forward references to resolve
+    auto it = forwardLabelReferences.find(name);
+    if (it != forwardLabelReferences.end()) {
+        std::set<cell_t> &references = it->second;
+        for (auto it2 = references.begin();
+            it2 != references.end(); it2++) {
+            scell_t offset = here - *it2;
+            memory.cell[*it2] = (cell_t)offset;
+        }
+        forwardLabelReferences.erase(name);
+    }
+}
+
+void OffsetTo(const char *labelName) {
+    auto it = labels.find(labelName);
+    if (it != labels.end()) {
+        cell_t target = it->second;
+        scell_t offset = target - here;
+        memory.cell[here++] = (cell_t)offset;
+    } else {
+        forwardLabelReferences[labelName].insert(here);
+        memory.cell[here++] = 0;
+    }
+}
+
+void Branch(const char *labelName) {
+    Word("BRANCH");
+    OffsetTo(labelName);
+}
+
+void ZBranch(const char *labelName) {
+    Word("0BRANCH");
+    OffsetTo(labelName);
+}
+
+void Loop(const char *labelName) {
+    Word("(LOOP)");
+    OffsetTo(labelName);
+}
+
+void PlusLoop(const char *labelName) {
+    Word("(+LOOP)");
+    OffsetTo(labelName);
 }
 
 void CheckStack(cell_t needs, cell_t adds) {
@@ -966,14 +1023,15 @@ void DefineSPACE() {
 void DefineDDUP() {
     Colon("-DUP");
     Word("DUP");
-    Word("0BRANCH");
-    Comma(2);
+    ZBranch("L1303");
     Word("DUP");
+Label("L1303");
     Word(";S");
 }
 
 void DefineTRAVERSE() {
     Colon("TRAVERSE");
+Label("L1312");
     Word("SWAP");
     Word("OVER");
     Word("+");
@@ -982,8 +1040,7 @@ void DefineTRAVERSE() {
     Word("OVER");
     Word("C@");
     Word("<");
-    Word("0BRANCH");
-    Comma(0xfff8);
+    ZBranch("L1312");
     Word("SWAP");
     Word("DROP");
     Word(";S");
@@ -1037,15 +1094,15 @@ void DefinePFA() {
     Word("AND");
     Word("+");
     Word("1+");
+Label("PFA1");
     Word("DUP");
     Word("LIT");
     Comma(cellPaddingMask);
     Word("AND");
-    Word("0BRANCH");
-    Comma(4);
+    ZBranch("PFA2");
     Word("1+");
-    Word("BRANCH");
-    Comma(0xfff8);
+    Branch("PFA1");
+Label("PFA2");
     Word("LIT");
     Comma(bytesPerCell * 2);
     Word("+");
@@ -1063,12 +1120,12 @@ void DefineSCSP() {
 void DefineQERR() {
     Colon("?ERROR");
     Word("SWAP");
-    Word("0BRANCH");
-    Comma(4);
+    ZBranch("L1406");
     Word("ERROR");
-    Word("BRANCH");
-    Comma(2);
+    Branch("L1407");
+Label("L1406");
     Word("DROP");
+Label("L1407");
     Word(";S");
 }
 
@@ -1239,20 +1296,20 @@ void DefineCOUNT() {
 void DefineTYPE() {
     Colon("TYPE");
     Word("-DUP");
-    Word("0BRANCH");
-    Comma(12);
+    ZBranch("L1651");
     Word("OVER");
     Word("+");
     Word("SWAP");
     Word("(DO)");
+Label("L1644");
     Word("I");
     Word("C@");
     Word("EMIT");
-    Word("(LOOP)");
-    Comma(-4);
-    Word("BRANCH");
-    Comma(2);
+    Loop("L1644");
+    Branch("L1652");
+Label("L1651");
     Word("DROP");
+Label("L1652");
     Word(";S");
 }
 
@@ -1261,6 +1318,7 @@ void DefineDTRAI() {
     Word("DUP");
     Word("0");
     Word("(DO)");
+Label("L1663");
     Word("OVER");
     Word("OVER");
     Word("+");
@@ -1269,15 +1327,14 @@ void DefineDTRAI() {
     Word("C@");
     Word("BL");
     Word("-");
-    Word("0BRANCH");
-    Comma(4);
+    ZBranch("L1676");
     Word("LEAVE");
-    Word("BRANCH");
-    Comma(3);
+    Branch("L1678");
+Label("L1676");
     Word("1");
     Word("-");
-    Word("(LOOP)");
-    Comma(0xfff0);
+Label("L1678");
+    Loop("L1663");
     Word(";S");
 }
 
@@ -1286,14 +1343,14 @@ void DefinePDOTQ() {
     Word("R");
     Word("COUNT");
     Word("DUP");
+Label("PDOTQ1");
     Word("1+");
-    Word("DUP");    // Added to skip padding
+    Word("DUP");   // Added to skip padding
     Word("LIT");
     Comma(cellPaddingMask);
     Word("AND");
-    Word("0BRANCH");
-    Comma(2);
-    Word("1+");     // End of added code
+    Word("0=");
+    ZBranch("PDOTQ1"); // End of added code
     Word("R>");
     Word("+");
     Word(">R");
@@ -1307,8 +1364,7 @@ void DefineDOTQ() {
     Comma(0x22);
     Word("STATE");
     Word("@");
-    Word("0BRANCH");
-    Comma(17);
+    ZBranch("L1719");
     Word("COMPILE");
     Word("(.\")");
     Word("WORD");
@@ -1323,12 +1379,13 @@ void DefineDOTQ() {
     Word("-");
     Word("+");
     Word("ALLOT");
-    Word("BRANCH");
-    Comma(5);
+    Branch("L1723");
+Label("L1719");
     Word("WORD");
     Word("HERE");
     Word("COUNT");
     Word("TYPE");
+Label("L1723");
     Word(";S");
 }
 
@@ -1338,6 +1395,7 @@ void DefineEXPEC() {
     Word("+");
     Word("OVER");
     Word("(DO)");
+Label("L1736");
     Word("KEY");
     Word("DUP");
     Word("LIT");
@@ -1345,8 +1403,7 @@ void DefineEXPEC() {
     Word("+ORIGIN");
     Word("@");
     Word("=");
-    Word("0BRANCH");
-    Comma(16);
+    ZBranch("L1760");
     Word("DROP");
     Word("LIT");
     Comma(0x08);
@@ -1360,30 +1417,30 @@ void DefineEXPEC() {
     Word("+");
     Word(">R");
     Word("-");
-    Word("BRANCH");
-    Comma(20);
+    Branch("L1779");
+Label("L1760");
     Word("DUP");
     Word("LIT");
     Comma(0x0a);
     Word("=");
-    Word("0BRANCH");
-    Comma(7);
+    ZBranch("L1772");
     Word("LEAVE");
     Word("DROP");
     Word("BL");
     Word("0");
-    Word("BRANCH");
-    Comma(2);
+    Branch("L1773");
+Label("L1772");
     Word("DUP");
+Label("L1773");
     Word("I");
     Word("C!");
     Word("0");
     Word("I");
     Word("1+");
     Word("C!");
+Label("L1779");
     Word("EMIT");
-    Word("(LOOP)");
-    Comma(0xffd3);
+    Loop("L1736");
     Word("DROP");
     Word(";S");
 }
@@ -1407,8 +1464,7 @@ void DefineX() {
     Colon("", immediateWordFlag);
     Word("BLK");
     Word("@");
-    Word("0BRANCH");
-    Comma(21);
+    ZBranch("L1830");
     Word("1");
     Word("BLK");
     Word("+!");
@@ -1422,15 +1478,16 @@ void DefineX() {
     Word("U/");
     Word("DROP");
     Word("0=");
-    Word("0BRANCH");
-    Comma(4);
+    ZBranch("L1828");
     Word("?EXEC");
     Word("R>");
     Word("DROP");
-    Word("BRANCH");
-    Comma(3);
+Label("L1828");
+    Branch("L1832");
+Label("L1830");
     Word("R>");
     Word("DROP");
+Label("L1832");
     Word(";S");
 }
 
@@ -1488,15 +1545,15 @@ void DefineWORD() {
     Colon("WORD");
     Word("BLK");
     Word("@");
-    Word("0BRANCH");
-    Comma(6);
+    ZBranch("L1914");
     Word("BLK");
     Word("@");
     Word("BLOCK");
-    Word("BRANCH");
-    Comma(3);
+    Branch("L1916");
+Label("L1914");
     Word("TIB");
     Word("@");
+Label("L1916");
     Word("IN");
     Word("@");
     Word("+");
@@ -1522,8 +1579,33 @@ void DefineWORD() {
     Word(";S");
 }
 
+// This routine converts text to upper case.  It allows interpretation
+// from a terminal without a shift lock.
+void DefineUPPER() {
+    Colon("UPPER");
+    Word("OVER");
+    Word("+");
+    Word("SWAP");
+    Word("PDO");
+Label("L1950");
+    Word("I");
+    Word("C@");
+    Word("LIT");
+    Comma(0x5f);
+    Word(">");
+    ZBranch("L1961");
+    Word("I");
+    Word("LIT");
+    Comma(0x20);
+    Word("TOGGLE");
+Label("L1961");
+    Loop("L1950");
+    Word(";S");
+}
+
 void DefinePNUMB() {
     Colon("(NUMBER)");
+Label("L1971");
     Word("1+");
     Word("DUP");
     Word(">R");
@@ -1531,8 +1613,7 @@ void DefinePNUMB() {
     Word("BASE");
     Word("@");
     Word("DIGIT");
-    Word("0BRANCH");
-    Comma(22);
+    ZBranch("L2001");
     Word("SWAP");
     Word("BASE");
     Word("@");
@@ -1546,14 +1627,16 @@ void DefinePNUMB() {
     Word("DPL");
     Word("@");
     Word("1+");
-    Word("0BRANCH");
-    Comma(4);
+    ZBranch("L1998");
     Word("1");
     Word("DPL");
     Word("+!");
+Label("L1998");
     Word("R>");
+    Branch("L1971");
     Word("BRANCH");
     Comma(0xffe3);
+Label("L2001");
     Word("R>");
     Word(";S");
 }
@@ -1574,6 +1657,7 @@ void DefineNUMBER() {
     Word("+");
     Word("LIT");
     Comma(cellMax);
+Label("L2023");
     Word("DPL");
     Word("!");
     Word("(NUMBER)");
@@ -1581,8 +1665,7 @@ void DefineNUMBER() {
     Word("C@");
     Word("BL");
     Word("-");
-    Word("0BRANCH");
-    Comma(11);
+    ZBranch("L2042");
     Word("DUP");
     Word("C@");
     Word("LIT");
@@ -1591,13 +1674,13 @@ void DefineNUMBER() {
     Word("0");
     Word("?ERROR");
     Word("0");
-    Word("BRANCH");
-    Comma(0xffee);
+    Branch("L2023");
+Label("L2042");
     Word("DROP");
     Word("R>");
-    Word("0BRANCH");
-    Comma(2);
+    ZBranch("L2047");
     Word("DMINUS");
+Label("L2047");
     Word(";S");
 }
 
@@ -1612,12 +1695,12 @@ void DefineDFIND() {
     Word("(FIND)");
     Word("DUP");
     Word("0=");
-    Word("0BRANCH");
-    Comma(5);
+    ZBranch("L2073");
     Word("DROP");
     Word("HERE");
     Word("LATEST");
     Word("(FIND)");
+Label("L2073");
     Word(";S");
 }
 
@@ -1632,9 +1715,9 @@ void DefineERROR() {
     Word("WARNING");
     Word("@");
     Word("0<");
-    Word("0BRANCH");
-    Comma(2);
+    ZBranch("L2096");
     Word("(ABORT)");
+Label("L2096");
     Word("HERE");
     Word("COUNT");
     Word("TYPE");
@@ -1687,8 +1770,7 @@ void DefineCREAT() {
     Word("2");
     Word("?ERROR");
     Word("-FIND");
-    Word("0BRANCH");
-    Comma(8);
+    ZBranch("L2163");
     Word("DROP");
     Word("NFA");
     Word("ID.");
@@ -1696,6 +1778,7 @@ void DefineCREAT() {
     Comma(4);
     Word("MESSAGE");
     Word("SPACE");
+Label("L2163");
     Word("HERE");
     Word("DUP");
     Word("C@");
@@ -1741,11 +1824,11 @@ void DefineLITER() {
     Colon("LITERAL", immediateWordFlag);
     Word("STATE");
     Word("@");
-    Word("0BRANCH");
-    Comma(4);
+    ZBranch("L2226");
     Word("COMPILE");
     Word("LIT");
     Word(",");
+Label("L2226");
     Word(";S");
 }
 
@@ -1753,11 +1836,11 @@ void DefineDLIT() {
     Colon("DLITERAL", immediateWordFlag);
     Word("STATE");
     Word("@");
-    Word("0BRANCH");
-    Comma(4);
+    ZBranch("L2242");
     Word("SWAP");
     Word("LITERAL");
     Word("LITERAL");
+Label("L2242");
     Word(";S");
 }
 
@@ -1781,38 +1864,38 @@ void DefineQSTAC() {
 
 void DefineINTER() {
     Colon("INTERPRET");
+Label("L2272");
     Word("-FIND");
-    Word("0BRANCH");
-    Comma(15);
+    ZBranch("L2289");
     Word("STATE");
     Word("@");
     Word("<");
-    Word("0BRANCH");
-    Comma(5);
+    ZBranch("L2284");
     Word("CFA");
     Word(",");
-    Word("BRANCH");
-    Comma(3);
+    Branch("L2286");
+Label("L2284");
     Word("CFA");
     Word("EXECUTE");
+Label("L2286");
     Word("?STACK");
-    Word("BRANCH");
-    Comma(14);
+    Branch("L2302");
+Label("L2289");
     Word("HERE");
     Word("NUMBER");
     Word("DPL");
     Word("@");
     Word("1+");
-    Word("0BRANCH");
-    Comma(4);
+    ZBranch("L2299");
     Word("DLITERAL");
-    Word("BRANCH");
-    Comma(3);
+    Branch("L2301");
+Label("L2299");
     Word("DROP");
     Word("LITERAL");
+Label("L2301");
     Word("?STACK");
-    Word("BRANCH");
-    Comma(0xffe1);
+Label("L2302");
+    Branch("L2272");
 }
 
 void DefineIMMEDIATE() {
@@ -1883,6 +1966,7 @@ void DefineQUIT() {
     Word("BLK");
     Word("!");
     Word("[");
+Label("L2388");
     Word("RP!");
     Word("CR");
     Word("QUERY");
@@ -1890,12 +1974,11 @@ void DefineQUIT() {
     Word("STATE");
     Word("@");
     Word("0=");
-    Word("0BRANCH");
-    Comma(4);
+    ZBranch("L2399");
     Word("(.\")");
     String("OK");
-    Word("BRANCH");
-    Comma(0xfff3);
+Label("L2399");
+    Branch("L2388");
     Word(";S");
 }
 
@@ -1924,18 +2007,18 @@ void DefineSTOD() {
 void DefinePM() {
     Colon("+-");
     Word("0<");
-    Word("0BRANCH");
-    Comma(2);
+    ZBranch("L2471");
     Word("MINUS");
+Label("L2471");
     Word(";S");
 }
 
 void DefineDPM() {
     Colon("D+-");
     Word("0<");
-    Word("0BRANCH");
-    Comma(2);
+    ZBranch("L2483");
     Word("DMINUS");
+Label("L2483");
     Word(";S");
 }
 
@@ -1958,9 +2041,9 @@ void DefineMIN() {
     Word("OVER");
     Word("OVER");
     Word(">");
-    Word("0BRANCH");
-    Comma(2);
+    ZBranch("L2517");
     Word("SWAP");
+Label("L2517");
     Word("DROP");
     Word(";S");
 }
@@ -1970,9 +2053,9 @@ void DefineMAX() {
     Word("OVER");
     Word("OVER");
     Word("<");
-    Word("0BRANCH");
-    Comma(2);
+    ZBranch("L2532");
     Word("SWAP");
+Label("L2532");
     Word("DROP");
     Word(";S");
 }
@@ -2081,10 +2164,10 @@ void DefinePBUF() {
     Word("DUP");
     Word("LIMIT");
     Word("=");
-    Word("0BRANCH");
-    Comma(3);
+    ZBranch("L2691");
     Word("DROP");
     Word("FIRST");
+Label("L2691");
     Word("DUP");
     Word("PREV");
     Word("@");
@@ -2161,16 +2244,15 @@ void DefineBUFFR() {
     Word("@");
     Word("DUP");
     Word(">R");
+Label("L2758");
     Word("+BUF");
-    Word("0BRANCH");
-    Comma(0xfffe);
+    ZBranch("L2758");
     Word("USE");
     Word("!");
     Word("R");
     Word("@");
     Word("0<");
-    Word("0BRANCH");
-    Comma(10);
+    ZBranch("L2776");
     Word("R");
     Word("2+");
     Word("R");
@@ -2180,6 +2262,7 @@ void DefineBUFFR() {
     Word("AND");
     Word("0");
     Word("R/W");
+Label("L2776");
     Word("R");
     Word("!");
     Word("R");
@@ -2204,12 +2287,11 @@ void DefineBLOCK() {
     Word("-");
     Word("DUP");
     Word("+");
-    Word("0BRANCH");
-    Comma(26);
+    ZBranch("L2830");
+Label("L2805");
     Word("+BUF");
     Word("0=");
-    Word("0BRANCH");
-    Comma(10);
+    ZBranch("L2818");
     Word("DROP");
     Word("R");
     Word("BUFFER");
@@ -2219,6 +2301,7 @@ void DefineBLOCK() {
     Word("R/W");
     Word("2");
     Word("-");
+Label("L2818");
     Word("DUP");
     Word("@");
     Word("R");
@@ -2226,11 +2309,11 @@ void DefineBLOCK() {
     Word("DUP");
     Word("+");
     Word("0=");
-    Word("0BRANCH");
-    Comma(0xffe8);
+    ZBranch("L2805");
     Word("DUP");
     Word("PREV");
     Word("!");
+Label("L2830");
     Word("R>");
     Word("DROP");
     Word("2+");
@@ -2265,11 +2348,9 @@ void DefineMESS() {
     Colon("MESSAGE");
     Word("WARNING");
     Word("@");
-    Word("0BRANCH");
-    Comma(14);
+    ZBranch("L2888");
     Word("-DUP");
-    Word("0BRANCH");
-    Comma(9);
+    ZBranch("L2886");
     Word("LIT");
     Comma(4);
     Word("OFFSET");
@@ -2278,11 +2359,13 @@ void DefineMESS() {
     Word("/");
     Word("-");
     Word(".LINE");
-    Word("BRANCH");
-    Comma(7);
+Label("L2886");
+    Branch("L2891");
+Label("L2888");
     Word("(.\")");
     String("MSG # ");
     Word(".");
+Label("L2891");
     Word(";S");
 }
 
@@ -2411,31 +2494,31 @@ void DefineFORG() {
     Word(">R");
     Word("VOC-LINK");
     Word("@");
+Label("L3220");
     Word("R");
     Word("OVER");
     Word("U<");
-    Word("0BRANCH");
-    Comma(9);
+    ZBranch("L3225");
     Word("FORTH");
     Word("DEFINITIONS");
     Word("@");
     Word("DUP");
     Word("VOC-LINK");
     Word("!");
-    Word("BRANCH");
-    Comma(0xffee);
+    Branch("L3220");
+Label("L3225");
     Word("DUP");
     Word("LIT");
     Comma(4);
     Word("-");
+Label("L3228");
     Word("PFA");
     Word("LFA");
     Word("@");
     Word("DUP");
     Word("R");
     Word("U<");
-    Word("0BRANCH");
-    Comma(0xfff9);
+    ZBranch("L3228");
     Word("OVER");
     Word("2");
     Word("-");
@@ -2443,8 +2526,7 @@ void DefineFORG() {
     Word("@");
     Word("-DUP");
     Word("0=");
-    Word("0BRANCH");
-    Comma(0xffe0);
+    ZBranch("L3225");
     Word("R>");
     Word("DP");
     Word("!");
@@ -2593,13 +2675,13 @@ void DefineSPACS() {
     Word("0");
     Word("MAX");
     Word("-DUP");
-    Word("0BRANCH");
-    Comma(6);
+    ZBranch("L3455");
     Word("0");
     Word("(DO)");
+Label("L3452");
     Word("SPACE");
-    Word("(LOOP)");
-    Comma(0xfffe);
+    Loop("L3452");
+Label("L3455");
     Word(";S");
 }
 
@@ -2627,11 +2709,11 @@ void DefineSIGN() {
     Colon("SIGN");
     Word("ROT");
     Word("0<");
-    Word("0BRANCH");
-    Comma(4);
+    ZBranch("L3496");
     Word("LIT");
     Comma(0x2d);
     Word("HOLD");
+Label("L3496");
     Word(";S");
 }
 
@@ -2645,11 +2727,11 @@ void DefineDIG() {
     Comma(9);
     Word("OVER");
     Word("<");
-    Word("0BRANCH");
-    Comma(4);
+    ZBranch("L3517");
     Word("LIT");
     Comma(7);
     Word("+");
+Label("L3517");
     Word("LIT");
     Comma(0x30);
     Word("+");
@@ -2659,13 +2741,13 @@ void DefineDIG() {
 
 void DefineDIGS() {
     Colon("#S");
+Label("L3529");
     Word("#");
     Word("OVER");
     Word("OVER");
     Word("OR");
     Word("0=");
-    Word("0BRANCH");
-    Comma(0xfffa);
+    ZBranch("L3529");
     Word(";S");
 }
 
@@ -2732,6 +2814,7 @@ void DefineLIST() {
     Comma(16);
     Word("0");
     Word("(DO)");
+Label("L3620");
     Word("CR");
     Word("I");
     Word("3");
@@ -2741,8 +2824,7 @@ void DefineLIST() {
     Word("SCR");
     Word("@");
     Word(".LINE");
-    Word("(LOOP)");
-    Comma(0xfff0);
+    Loop("L3620");
     Word("CR");
     Word(";S");
 }
@@ -2753,6 +2835,7 @@ void DefineINDEX() {
     Word("1+");
     Word("SWAP");
     Word("(DO)");
+Label("L3647");
     Word("CR");
     Word("I");
     Word("3");
@@ -2762,11 +2845,10 @@ void DefineINDEX() {
     Word("I");
     Word(".LINE");
     Word("?TERMINAL");
-    Word("0BRANCH");
-    Comma(2);
+    ZBranch("L3659");
     Word("LEAVE");
-    Word("(LOOP)");
-    Comma(0xfff3);
+Label("L3659");
+    Loop("L3647");
     Word("LIT");
     Comma(0x0c);    // FORM FEED FOR PRINTER
     Word("EMIT");
@@ -2784,11 +2866,11 @@ void DefineTRIAD() {
     Word("+");
     Word("SWAP");
     Word("(DO)");
+Label("L3681");
     Word("CR");
     Word("I");
     Word("LIST");
-    Word("(LOOP)");
-    Comma(0xfffc);
+    Loop("L3681");
     Word("CR");
     Word("LIT");
     Comma(0x0f);
@@ -2809,16 +2891,17 @@ void DefineVLIST() {
     Word("CONTEXT");
     Word("@");
     Word("@");
+Label("L3706");
     Word("OUT");
     Word("@");
     Word("C/L");
     Word(">");
-    Word("0BRANCH");
-    Comma(5);
+    ZBranch("L3716");
     Word("CR");
     Word("0");
     Word("OUT");
     Word("!");
+Label("L3716");
     Word("DUP");
     Word("ID.");
     Word("SPACE");
@@ -2830,8 +2913,7 @@ void DefineVLIST() {
     Word("0=");
     Word("?TERMINAL");
     Word("OR");
-    Word("0BRANCH");
-    Comma(0xffea);
+    ZBranch("L3706");
     Word("DROP");
     Word(";S");
 }
