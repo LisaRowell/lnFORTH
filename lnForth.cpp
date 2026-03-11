@@ -1083,8 +1083,7 @@ void DefineLFA() {
 
 void DefineCFA() {
     Colon("CFA");
-    Word("LIT");
-    Comma(bytesPerCell);
+    Word("B/CELL");
     Word("-");
     Word(";S");
 }
@@ -1205,8 +1204,7 @@ void DefineCOMPILE() {
     Word("?COMP");
     Word("R>");
     Word("DUP");
-    Word("LIT");
-    Comma(bytesPerCell);
+    Word("B/CELL");
     Word("+");
     Word(">R");
     Word("@");
@@ -1417,8 +1415,7 @@ void DefineEXPEC() {
 Label("L1736");
     Word("KEY");
     Word("DUP");
-    Word("LIT");
-    Comma(bytesPerCell);
+    Word("B/CELL");
     Word("+ORIGIN");
     Word("@");
     Word("=");
@@ -1947,9 +1944,8 @@ void DefineVOCABULARY() {
     Word("!");
     Word("DOES>");
     DoesEntry("DOVOC");
-    Word("LIT");         // Altered from 6502 source to handle variable cell size
-    Comma(bytesPerCell);
-    Word("+");           // End of change
+    Word("B/CELL");   // Altered from 6502 source to handle variable cell size
+    Word("+");        // End of change
     Word("CONTEXT");
     Word("!");
     Word(";S");
@@ -2267,8 +2263,7 @@ Label("L2758");
     Word("0<");
     ZBranch("L2776");
     Word("R");
-    Word("LIT");
-    Comma(bytesPerCell);
+    Word("B/CELL");
     Word("+");
     Word("R");
     Word("@");
@@ -2284,8 +2279,7 @@ Label("L2776");
     Word("PREV");
     Word("!");
     Word("R>");
-    Word("LIT");
-    Comma(bytesPerCell);
+    Word("B/CELL");
     Word("+");
     Word(";S");
 }
@@ -2316,7 +2310,7 @@ Label("L2805");
     Word("R");
     Word("1");
     Word("R/W");
-    Word("2");
+    Word("B/CELL");
     Word("-");
 Label("L2818");
     Word("DUP");
@@ -2333,7 +2327,8 @@ Label("L2818");
 Label("L2830");
     Word("R>");
     Word("DROP");
-    Word("2+");
+    Word("B/CELL");
+    Word("+");
     Word(";S");
 }
 
@@ -3400,6 +3395,7 @@ int main(int ac, char* av[]) {
     Constant("LIMIT", UAREA);
     Constant("B/BUF", BUFFER_SIZE);
     Constant("B/SCR", 1);
+    Constant("B/CELL", bytesPerCell);
 
     DefinePORIG();
     User("TIB", tibUserIndex);
