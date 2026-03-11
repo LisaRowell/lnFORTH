@@ -35,14 +35,11 @@ static void EnableRawMode() {
     atexit(DisableRawMode);
 
     struct termios newTermios = originalTermios;
-//    cfmakeraw(&newTermios);
     newTermios.c_lflag &= ~(ECHO | ICANON);
     newTermios.c_cc[VMIN] = 1;
     newTermios.c_cc[VTIME] = 0;
 
     tcsetattr(0, TCSANOW, &newTermios);
-
-//    tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
 }
 
 void XInit() {
