@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <unistd.h>
+#include <stdio.h>
 
 #include <iostream>
 #include <iomanip>
@@ -15,6 +16,7 @@ typedef int16_t scell_t;
 typedef uint32_t double_t;
 typedef int32_t sdouble_t;
 const cell_t cellMax = 0xffff;
+const cell_t scellMax = 0x7fff;
 const cell_t cellPaddingMask = 0x0001;
 #else
 typedef uint32_t cell_t;
@@ -22,6 +24,7 @@ typedef int32_t scell_t;
 typedef uint64_t double_t;
 typedef int64_t sdouble_t;
 const cell_t cellMax = 0xffffffff;
+const cell_t scellMax = 0x7fffffff;
 const cell_t cellPaddingMask = 0x00000003;
 #endif
 
@@ -90,7 +93,8 @@ enum class Token : cell_t {
     DOVAR,
     LESS,
     DODOE,
-    DDISC,
+    DREAD,
+    DWRITE,
     MON
 };
 
@@ -108,15 +112,16 @@ union Mem {
     uint8_t byte[memorySize * bytesPerCell];
 } memory;
 
-const cell_t SSIZE = 1024;    // Sector size in bytes
-
 const cell_t TIBX = 0x0100;
 const cell_t ORIG = 0x0200;
 const cell_t UAREA = (cell_t)(memorySize * bytesPerCell) - 128;
-const cell_t BMAG =1056;           // Total buffer magnitude, in bytes
+const cell_t NBUFFERS = 3;
+const cell_t BUFFER_SIZE = 1024;
+const cell_t MEM_BYTES_PER_BUFFER = BUFFER_SIZE + 2 * bytesPerCell;
+// Total buffer magnitude, in bytes
+const cell_t BMAG = NBUFFERS * MEM_BYTES_PER_BUFFER;
 const cell_t DAREA = UAREA - BMAG; // Disk buffer area
-const cell_t SECTR = 800;          // REVISIT!!!
-const cell_t SECTL = 1600;          // REVISIT!!!
+const cell_t MAX_BLOCK_NUMBER = 500;
 
 const cell_t tibUserIndex     = 0;
 const cell_t widthUserIndex   = 1;
@@ -267,7 +272,6 @@ void Constant(const char *name, cell_t value, uint8_t flags = 0) {
 }
 
 void Variable(const char *name, cell_t value, uint8_t flags = 0) {
-std::cout << "Defining var " << name << " with value=" << addrFormat(value) << std::endl;
     Header(name, flags);
     memory.cell[here++] = static_cast<cell_t>(Token::DOVAR);
     memory.cell[here++] = value;
@@ -2172,7 +2176,7 @@ void DefineMSMOD() {
 void DefinePBUF() {
     Colon("+BUF");
     Word("LIT");
-    Comma(SSIZE + 4); //    holds block #, one sector, two nu
+    Comma(MEM_BYTES_PER_BUFFER);
     Word("+");
     Word("DUP");
     Word("LIMIT");
@@ -2194,7 +2198,7 @@ void DefineUPDAT() {
     Word("@");
     Word("@");
     Word("LIT");
-    Comma(0x8000);
+    Comma(scellMax + 1);
     Word("OR");
     Word("PREV");
     Word("@");
@@ -2209,18 +2213,18 @@ void DefineFLUSH() {
     Word("-");
     Word("B/BUF");
     Word("LIT");
-    Comma(4);
+    Comma(2 * bytesPerCell);
     Word("+");
     Word("/");
     Word("1+");
     Word("0");
     Word("(DO)");
+Label("L2835");
     Word("LIT");
-    Comma(0x7fff);
+    Comma(scellMax);
     Word("BUFFER");
     Word("DROP");
-    Word("(LOOP)");
-    Comma(0xfffb);
+    Loop("L2835");
     Word(";S");
 }
 
@@ -2242,15 +2246,6 @@ void DefineDR0() {
     Word(";S");
 }
 
-void DefineDR1() {
-    Colon("DR1");
-    Word("LIT");
-    Comma(SECTR);    // Sectors per drive
-    Word("OFFSET");
-    Word("!");
-    Word(";S");
-}
-
 void DefineBUFFR() {
     Colon("BUFFER");
     Word("USE");
@@ -2267,11 +2262,13 @@ Label("L2758");
     Word("0<");
     ZBranch("L2776");
     Word("R");
-    Word("2+");
+    Word("LIT");
+    Comma(bytesPerCell);
+    Word("+");
     Word("R");
     Word("@");
     Word("LIT");
-    Comma(0x7fff);
+    Comma(scellMax);
     Word("AND");
     Word("0");
     Word("R/W");
@@ -2282,7 +2279,9 @@ Label("L2776");
     Word("PREV");
     Word("!");
     Word("R>");
-    Word("2+");
+    Word("LIT");
+    Comma(bytesPerCell);
+    Word("+");
     Word(";S");
 }
 
@@ -2424,58 +2423,87 @@ void DefineNEXTSCREEN() {
     Word(";S");
 }
 
-void DDISC() {
-    // Write me
+void DREAD() {
+    CheckStack(2, 0);
+
+    cell_t blk = stack[sp--];
+    cell_t addr = stack[sp--];
+    long blkDiskOffset = blk * BUFFER_SIZE;
+
+    FILE *file = fopen("disk", "r");
+    if (file == nullptr) {
+        stack[++sp] = 0;
+        return;
+    }
+
+    if (fseek(file, blkDiskOffset, SEEK_SET) != 0) {
+        stack[++sp] = 0;
+        (void)fclose(file);
+        return;
+    }
+    if (fread(&memory.byte[addr], 1, BUFFER_SIZE, file) != BUFFER_SIZE) {
+        stack[++sp] = 0;
+        (void)fclose(file);
+        return;
+    }
+
+    if (fclose(file) != 0) {
+        stack[++sp] = 0;
+        return;
+    }
+
+    stack[++sp] = 1;
 }
 
-void DefineDBCD() {
-    Colon("-BCD");
-    Word("0");
-    Word("LIT");
-    Comma(10);
-    Word("U/");
-    Word("LIT");
-    Comma(16);
-    Word("*");
-    Word("OR");
-    Word(";S");
+void DWRITE() {
+    CheckStack(2, 0);
+
+    cell_t blk = stack[sp--];
+    cell_t addr = stack[sp--];
+    long blkDiskOffset = blk * BUFFER_SIZE;
+
+    FILE *file = fopen("disk", "w");
+    if (file == nullptr) {
+        stack[++sp] = 0;
+        return;
+    }
+
+    if (fseek(file, blkDiskOffset, SEEK_SET) != 0) {
+        stack[++sp] = 0;
+        (void)fclose(file);
+        return;
+    }
+    if (fwrite(&memory.byte[addr], 1, BUFFER_SIZE, file) != BUFFER_SIZE) {
+        stack[++sp] = 0;
+        (void)fclose(file);
+        return;
+    }
+
+    if (fclose(file) != 0) {
+        stack[++sp] = 0;
+        return;
+    }
+
+    stack[++sp] = 1;
 }
 
+// Modified from original model
 void DefineRSLW() {
     Colon("R/W");
-    Word("0=");
-    Word("LIT");
-    Comma(0xc4da);        // YIKES!! Revisit
-    Word("C!");
-    Word("SWAP");
-    Word("0");
-    Word("!");
-    Word("0");
-    Word("OVER");
-    Word(">");
     Word("OVER");
     Word("LIT");
-    Comma(SECTL - 1);
+    Comma(MAX_BLOCK_NUMBER);
     Word(">");
-    Word("OR");
     Word("LIT");
     Comma(6);
     Word("?ERROR");
-    Word("0");
-    Word("LIT");
-    Comma(SECTR);
-    Word("U/");
-    Word("1+");
-    Word("SWAP");
-    Word("0");
-    Word("LIT");
-    Comma(0x12);
-    Word("U/");
-    Word("-BCD");
-    Word("SWAP");
-    Word("1+");
-    Word("-BCD");
-    Word("-DISC");
+    ZBranch("RSLWWrite");
+    Word("DREAD");
+    Branch("RSLWErrorCheck");
+Label("RSLWWrite");
+    Word("DWRITE");
+Label("RSLWErrorCheck");
+    Word("0=");
     Word("LIT");
     Comma(8);
     Word("?ERROR");
@@ -3064,8 +3092,10 @@ const char *TokenName(Token token) {
             return "LESS";
         case Token::DODOE:
             return "DODOE";
-        case Token::DDISC:
-            return "DDISC";
+        case Token::DREAD:
+            return "DREAD";
+        case Token::DWRITE:
+            return "DWRITE";
         case Token::MON:
             return "MON";
     }
@@ -3224,8 +3254,11 @@ inline void executeToken(Token token) {
         case Token::DODOE:
             DODOE();
             break;
-        case Token::DDISC:
-            DDISC();
+        case Token::DREAD:
+            DREAD();
+            break;
+        case Token::DWRITE:
+            DWRITE();
             break;
         case Token::MON:
             MON();
@@ -3355,7 +3388,7 @@ int main(int ac, char* av[]) {
     Constant("C/L", 64);
     Constant("FIRST", DAREA);
     Constant("LIMIT", UAREA);
-    Constant("B/BUF", SSIZE);
+    Constant("B/BUF", BUFFER_SIZE);
     Constant("B/SCR", 1);
 
     DefinePORIG();
@@ -3474,7 +3507,6 @@ int main(int ac, char* av[]) {
     DefineFLUSH();
     DefineEMPTYBUFFERS();
     DefineDR0();
-    DefineDR1();
     DefineBUFFR();
     DefineBLOCK();
     DefinePLINE();
@@ -3482,8 +3514,8 @@ int main(int ac, char* av[]) {
     DefineMESS();
     DefineLOAD();
     DefineNEXTSCREEN();
-    Primitive("-DISC", Token::DDISC);
-    DefineDBCD();
+    Primitive("DREAD", Token::DREAD);
+    Primitive("DWRITE", Token::DWRITE);
     DefineRSLW();
     DefineTICK();
     DefineFORG();
