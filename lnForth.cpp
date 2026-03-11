@@ -8,6 +8,8 @@
 #include <map>
 #include <set>
 
+#include "Platform.h"
+
 #define CELL_SIZE_32_BITS 1
 
 #ifdef CELL_SIZE_16_BITS
@@ -605,7 +607,7 @@ void EMIT() {
     CheckStack(1, 0);
 
     char character = (char)stack[sp--];
-    std::cout << character;
+    XEmit(character);
 
     memory.cell[ByteIndexToCellIndex(UAREA) + outUserIndex]++;
 }
@@ -1416,7 +1418,7 @@ Label("L1736");
     Word("KEY");
     Word("DUP");
     Word("LIT");
-    Comma(0x0e);
+    Comma(bytesPerCell);
     Word("+ORIGIN");
     Word("@");
     Word("=");
@@ -1424,6 +1426,9 @@ Label("L1736");
     Word("DROP");
     Word("LIT");
     Comma(0x08);
+    Word("DUP");      // Added from the model as now days 0x08 only moves and
+    Word("EMIT");     // doesn't erase.
+    Word("SPACE");
     Word("OVER");
     Word("I");
     Word("=");
@@ -3277,7 +3282,7 @@ void ExecuteTokenNonInline(Token token) {
 }
 
 void InitUserMemory() {
-    cell_t variablesToInit = memory.cell[ByteIndexToCellIndex(ORIG) + 1];
+    cell_t variablesToInit = memory.cell[ByteIndexToCellIndex(ORIG) + 2];
     for (cell_t i = 0; i < variablesToInit; i++) {
         memory.cell[ByteIndexToCellIndex(UAREA) + i] =
             memory.cell[ByteIndexToCellIndex(ORIG) + 2 + i];
@@ -3309,6 +3314,8 @@ void VirtualMachine() {
 }
 
 int main(int ac, char* av[]) {
+    XInit();
+
     sp = cellMax;
     rp = cellMax;
     here = ByteIndexToCellIndex(ORIG);
@@ -3317,6 +3324,9 @@ int main(int ac, char* av[]) {
 
     // Cold start word
     Word("ABORT");
+
+    // What character is received when backspace is pressed
+    Comma(XDeleteCharacter());
 
     // Number of user area entries to initialize
     Comma(6);
