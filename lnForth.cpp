@@ -105,7 +105,7 @@ enum class Token : cell_t {
 const size_t maxWordNameLength = UINT8_MAX >> 2;
 const uint8_t wordValidFlag = 0x80;
 const uint8_t immediateWordFlag = 0x40;
-const uint8_t nameLengthMask = 0x3f;
+const uint8_t nameLengthMask = 0x1f;
 
 cell_t stack[dataStackSize];
 cell_t rStack[returnStackSize];
@@ -351,7 +351,7 @@ void Label(const char *name) {
         for (auto it2 = references.begin();
             it2 != references.end(); it2++) {
             scell_t offset = here - *it2;
-            memory.cell[*it2] = (cell_t)offset;
+            memory.cell[*it2] = (cell_t)(offset * bytesPerCell);
         }
         forwardLabelReferences.erase(name);
     }
@@ -362,7 +362,7 @@ void OffsetTo(const char *labelName) {
     if (it != labels.end()) {
         cell_t target = it->second;
         scell_t offset = target - here;
-        memory.cell[here++] = (cell_t)offset;
+        memory.cell[here++] = (cell_t)(offset * bytesPerCell);
     } else {
         forwardLabelReferences[labelName].insert(here);
         memory.cell[here++] = 0;
@@ -423,6 +423,16 @@ void CheckReturnStack(cell_t needs, cell_t adds) {
     }
 }
 
+inline void CheckAddr(cell_t addr) {
+    if (addr > memorySize * bytesPerCell) {
+        std::cerr << "Attempt to access illegal memory address "
+                  << addrFormat(addr)
+                  << " ip=" << addrFormat(CellIndexToByteIndex(ip))
+                  << " w=" << addrFormat(addr) << std::endl;
+        std::exit(1);
+    }
+}
+
 void LIT() {
     CheckStack(0, 1);
 
@@ -440,14 +450,14 @@ void EXEC() {
 }
 
 void BRAN() {
-    ip += memory.cell[ip];
+    ip += (scell_t)memory.cell[ip] / bytesPerCell;
 }
 
 void ZBRAN() {
     CheckStack(1, 0);
 
     if(stack[sp--] == 0) {
-        ip += memory.cell[ip];
+        ip += (scell_t)memory.cell[ip] / bytesPerCell;
     } else {
         ip++;
     }
@@ -458,7 +468,7 @@ void PLOOP() {
 
     rStack[rp] += 1;
     if (rStack[rp] < rStack[rp - 1]) {
-        ip += memory.cell[ip];
+        ip += (scell_t)memory.cell[ip] / bytesPerCell;
     } else {
         ip++;
         rp -= 2;
@@ -472,7 +482,7 @@ void PPLOO() {
     cell_t n = stack[sp--];
     rStack[rp] += n;
     if (rStack[rp] < rStack[rp - 1]) {
-        ip += memory.cell[ip];
+        ip += (scell_t)memory.cell[ip] / bytesPerCell;
     } else {
         ip++;
         rp -= 2;
@@ -556,7 +566,7 @@ void PFIND() {
         if (WordNamesMatch(dictEntry, name)) {
             stack[++sp] = (cell_t)(dictEntry + NameFieldLength(dictEntry) +
                                    bytesPerCell * 2);
-            stack[++sp] = memory.byte[dictEntry] & nameLengthMask;
+            stack[++sp] = memory.byte[dictEntry];
             stack[++sp] = 1;
             return;
         }
@@ -724,7 +734,7 @@ void SEMIS() {
 }
 
 void LEAVE() {
-    CheckReturnStack(0, 2);
+    CheckReturnStack(2, 0);
 
     rStack[rp - 1] = rStack[rp];
 }
@@ -835,8 +845,8 @@ void PSTOR() {
 void TOGGLE() {
     CheckStack(2, 0);
 
-    cell_t addr = stack[sp--];
     cell_t b = stack[sp--];
+    cell_t addr = stack[sp--];
     memory.cell[ByteIndexToCellIndex(addr)] ^= b;
 }
 
@@ -844,6 +854,8 @@ void AT() {
     CheckStack(1, 0);
 
     cell_t addr = stack[sp--];
+
+    CheckAddr(addr);
     cell_t n = memory.cell[ByteIndexToCellIndex(addr)];
     stack[++sp] = n;
 }
@@ -852,6 +864,8 @@ void CAT() {
     CheckStack(1, 0);
 
     cell_t addr = stack[sp--];
+
+    CheckAddr(addr);
     uint8_t n = memory.byte[addr];
     stack[++sp] = (cell_t)n;
 }
@@ -861,6 +875,8 @@ void STORE() {
 
     cell_t addr = stack[sp--];
     cell_t n = stack[sp--];
+
+    CheckAddr(addr);
     memory.cell[ByteIndexToCellIndex(addr)] = n;
 }
 
@@ -869,6 +885,8 @@ void CSTORE() {
 
     cell_t addr = stack[sp--];
     cell_t value = stack[sp--];
+
+    CheckAddr(addr);
     memory.byte[addr] = (uint8_t)value;
 }
 
@@ -981,7 +999,16 @@ void DefineCOMMA() {
     Colon(",");
     Word("HERE");
     Word("!");
-    Word("2");
+    Word("B/CELL");
+    Word("ALLOT");
+    Word(";S");
+}
+
+void DefineCCOMMA() {
+    Colon("C,");
+    Word("HERE");
+    Word("C!");
+    Word("1");
     Word("ALLOT");
     Word(";S");
 }
@@ -1259,6 +1286,7 @@ void DefineDECIMAL() {
 void DefinePSCOD() {
     Colon("(;CODE)");
     Word("R>");
+    Word("@");
     Word("LATEST");
     Word("PFA");
     Word("CFA");
@@ -1810,19 +1838,26 @@ Label("L2163");
     Word("LIT");
     Comma(0xa0);
     Word("TOGGLE");
+    // The following pads out the name field so that the link field is
+    // cell aligned.
+Label("CREATEPadLoop");
     Word("HERE");
-    Word("1");
-    Word("-");
     Word("LIT");
-    Comma(0x80);
-    Word("TOGGLE");
+    Comma(cellPaddingMask);
+    Word("AND");
+    ZBranch("CREATEPadDone");
+    Word("0");
+    Word("C,");
+    Branch("CREATEPadLoop");
+Label("CREATEPadDone");
     Word("LATEST");
     Word(",");
     Word("CURRENT");
     Word("@");
     Word("!");
     Word("HERE");
-    Word("2+");
+    Word("B/CELL");
+    Word("+");
     Word(",");
     Word(";S");
 }
@@ -2851,8 +2886,7 @@ void DefineLIST() {
     Word("(.\")");
     String("SCR # ");
     Word(".");
-    Word("LIT");
-    Comma(16);
+    Word("L/SCR");
     Word("0");
     Word("(DO)");
 Label("L3620");
@@ -3391,6 +3425,7 @@ int main(int ac, char* av[]) {
     Constant("3", 3);
     Constant("BL", (cell_t)' ');
     Constant("C/L", 64);
+    Constant("L/SCR", 16);
     Constant("FIRST", DAREA);
     Constant("LIMIT", UAREA);
     Constant("B/BUF", BUFFER_SIZE);
@@ -3424,6 +3459,7 @@ int main(int ac, char* av[]) {
     DefineHERE();
     DefineALLOT();
     DefineCOMMA();
+    DefineCCOMMA();
     DefineSUB();
     DefineEQUAL();
     DefineULESS();
