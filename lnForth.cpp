@@ -125,26 +125,27 @@ const cell_t BMAG = NBUFFERS * MEM_BYTES_PER_BUFFER;
 const cell_t DAREA = UAREA - BMAG; // Disk buffer area
 const cell_t MAX_BLOCK_NUMBER = 500;
 
-const cell_t tibUserIndex     = 0;
-const cell_t widthUserIndex   = 1;
-const cell_t warningUserIndex = 2;
-const cell_t fenceUserIndex   = 3;
-const cell_t dpUserIndex      = 4;
-const cell_t voclUserIndex    = 5;
-const cell_t blkUserIndex     = 6;
-const cell_t inUserIndex      = 7;
-const cell_t outUserIndex     = 8;
-const cell_t scrUserIndex     = 9;
-const cell_t offsetUserIndex  = 10;
-const cell_t contextUserIndex = 11;
-const cell_t currentUserIndex = 12;
-const cell_t stateUserIndex   = 13;
-const cell_t baseUserIndex    = 14;
-const cell_t dplUserIndex     = 15;
-const cell_t fldUserIndex     = 16;
-const cell_t cspUserIndex     = 17;
-const cell_t rnumUserIndex    = 18;
-const cell_t hldUserIndex     = 19;
+const cell_t tibUserIndex       = 0;
+const cell_t widthUserIndex     = 1;
+const cell_t warningUserIndex   = 2;
+const cell_t fenceUserIndex     = 3;
+const cell_t dpUserIndex        = 4;
+const cell_t voclUserIndex      = 5;
+const cell_t deleteKeyUserIndex = 6;
+const cell_t blkUserIndex       = 7;
+const cell_t inUserIndex        = 8;
+const cell_t outUserIndex       = 9;
+const cell_t scrUserIndex       = 10;
+const cell_t offsetUserIndex    = 11;
+const cell_t contextUserIndex   = 12;
+const cell_t currentUserIndex   = 13;
+const cell_t stateUserIndex     = 14;
+const cell_t baseUserIndex      = 15;
+const cell_t dplUserIndex       = 16;
+const cell_t fldUserIndex       = 17;
+const cell_t cspUserIndex       = 18;
+const cell_t rnumUserIndex      = 19;
+const cell_t hldUserIndex       = 20;
 
 cell_t sp;
 cell_t rp;
@@ -1443,8 +1444,7 @@ void DefineEXPEC() {
 Label("L1736");
     Word("KEY");
     Word("DUP");
-    Word("B/CELL");
-    Word("+ORIGIN");
+    Word("DELETE-KEY");
     Word("@");
     Word("=");
     ZBranch("L1760");
@@ -3312,10 +3312,10 @@ void ExecuteTokenNonInline(Token token) {
 }
 
 void InitUserMemory() {
-    cell_t variablesToInit = memory.cell[ByteIndexToCellIndex(ORIG) + 2];
+    cell_t variablesToInit = memory.cell[ByteIndexToCellIndex(ORIG) + 1];
     for (cell_t i = 0; i < variablesToInit; i++) {
         memory.cell[ByteIndexToCellIndex(UAREA) + i] =
-            memory.cell[ByteIndexToCellIndex(ORIG) + 3 + i];
+            memory.cell[ByteIndexToCellIndex(ORIG) + 2 + i];
     }
 }
 
@@ -3355,17 +3355,15 @@ int main(int ac, char* av[]) {
     // Cold start word
     Word("ABORT");
 
-    // What character is received when backspace is pressed
-    Comma(XDeleteCharacter());
-
     // Number of user area entries to initialize
-    Comma(6);
-    Comma(TIBX);    // TIB
-    Comma(31);      // WIDTH
-    Comma(0);       // Warning 0=no disk 1=disk
-    Comma(0);       // FENCE
-    Comma(0);       // DP
-    Comma(0);       // VOCL
+    Comma(7);
+    Comma(TIBX);         // TIB
+    Comma(31);           // WIDTH
+    Comma(0);            // WARNING (0=no disk 1=disk)
+    Comma(0);            // FENCE
+    Comma(0);            // DP
+    Comma(0);            // VOCL
+    Comma(XDeleteKey()); // DELETE-KEY
 
     Primitive("LIT", Token::LIT);
     Primitive("CLIT", Token::LIT);   // Since we cell align words, there no point in CLIT differing from LIT
@@ -3440,6 +3438,7 @@ int main(int ac, char* av[]) {
     User("FENCE", fenceUserIndex);
     User("DP", dpUserIndex);
     User("VOC-LINK", voclUserIndex);
+    User("DELETE-KEY", deleteKeyUserIndex);
     User("BLK", blkUserIndex);
     User("IN", inUserIndex);
     User("OUT", outUserIndex);
@@ -3607,9 +3606,9 @@ int main(int ac, char* av[]) {
         std::exit(1);
     }
 
+    memory.cell[ByteIndexToCellIndex(ORIG) + 5] = CellIndexToByteIndex(here);
     memory.cell[ByteIndexToCellIndex(ORIG) + 6] = CellIndexToByteIndex(here);
-    memory.cell[ByteIndexToCellIndex(ORIG) + 7] = CellIndexToByteIndex(here);
-    memory.cell[ByteIndexToCellIndex(ORIG) + 8] =
+    memory.cell[ByteIndexToCellIndex(ORIG) + 7] =
         CellIndexToByteIndex(forthLastWordReference + 1);
 
     if (dumpDictionary) {
