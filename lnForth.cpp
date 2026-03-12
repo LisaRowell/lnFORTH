@@ -606,12 +606,9 @@ void ENCL() {
     if (memory.byte[addr + n2] == 0) {
         stack[++sp] = n2;
         return;
+    } else {
+        stack[++sp] = n2 + 1;
     }
-    cell_t n3 = n2 + 1;
-    while (memory.byte[addr + n3] == c) {
-        n3++;
-    }
-    stack[++sp] = n3;
 }
 
 void EMIT() {
@@ -1417,7 +1414,7 @@ void DefineDOTQ() {
     Word("HERE");
     Word("C@");
     Word("LIT");
-    Comma(4);
+    Comma(bytesPerCell);
     Word("OVER");
     Word("LIT");
     Comma(cellPaddingMask);
@@ -1581,9 +1578,10 @@ void DefineHOLD() {
 
 void DefinePAD() {
     Colon("PAD");
-    Word("HERE");
-    Word("LIT");
-    Comma(68);      // PAD is 68 bytes about here.
+    Word("HERE");     // PAD is line length plus a cell aboove HERE
+    Word("C/L");
+    Word("B/CELL");
+    Word("+");
     Word("+");
     Word(";S");
 }
