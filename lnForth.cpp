@@ -1077,8 +1077,8 @@ Label("L1303");
 
 void DefineTRAVERSE() {
     Colon("TRAVERSE");
-Label("L1312");
     Word("SWAP");
+    Label("L1312");
     Word("OVER");
     Word("+");
     Word("LIT");
@@ -2585,7 +2585,7 @@ Label("L3220");
 Label("L3225");
     Word("DUP");
     Word("LIT");
-    Comma(4);
+    Comma(bytesPerCell * 2);
     Word("-");
 Label("L3228");
     Word("PFA");
@@ -2596,7 +2596,8 @@ Label("L3228");
     Word("U<");
     ZBranch("L3228");
     Word("OVER");
-    Word("2");
+    Word("LIT");
+    Comma(bytesPerCell);
     Word("-");
     Word("!");
     Word("@");
