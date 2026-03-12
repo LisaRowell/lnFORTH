@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <termios.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 #include <iostream>
 
@@ -63,4 +64,48 @@ char XDeleteKey() {
 
 void XEmit(char character) {
     (void)write(STDIN_FILENO, &character, 1);
+}
+
+bool XRead(uint8_t *addr, unsigned long blkDiskOffset, size_t length) {
+    FILE *file = fopen("disk", "r");
+    if (file == nullptr) {
+        return false;
+    }
+
+    if (fseek(file, blkDiskOffset, SEEK_SET) != 0) {
+        (void)fclose(file);
+        return false;
+    }
+    if (fread(addr, 1, length, file) != length) {
+        (void)fclose(file);
+        return false;
+    }
+
+    if (fclose(file) != 0) {
+        return false;
+    }
+
+    return true;
+}
+
+bool XWrite(uint8_t *addr, unsigned long blkDiskOffset, size_t length) {
+    int file = open("disk", O_WRONLY);
+    if (file < 0) {
+        return false;
+    }
+
+    if (lseek(file, blkDiskOffset, SEEK_SET) != blkDiskOffset) {
+        (void)close(file);
+        return false;
+    }
+    if (write(file, addr, length) != length) {
+        (void)close(file);
+        return false;
+    }
+
+    if (close(file) != 0) {
+        return false;
+    }
+
+    return true;
 }

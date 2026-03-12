@@ -2465,29 +2465,8 @@ void DREAD() {
     cell_t addr = stack[sp--];
     long blkDiskOffset = blk * BUFFER_SIZE;
 
-    FILE *file = fopen("disk", "r");
-    if (file == nullptr) {
-        stack[++sp] = 0;
-        return;
-    }
-
-    if (fseek(file, blkDiskOffset, SEEK_SET) != 0) {
-        stack[++sp] = 0;
-        (void)fclose(file);
-        return;
-    }
-    if (fread(&memory.byte[addr], 1, BUFFER_SIZE, file) != BUFFER_SIZE) {
-        stack[++sp] = 0;
-        (void)fclose(file);
-        return;
-    }
-
-    if (fclose(file) != 0) {
-        stack[++sp] = 0;
-        return;
-    }
-
-    stack[++sp] = 1;
+    bool result = XRead(&memory.byte[addr], blkDiskOffset, BUFFER_SIZE);
+    stack[++sp] = result ? 1 : 0;
 }
 
 void DWRITE() {
@@ -2497,29 +2476,8 @@ void DWRITE() {
     cell_t addr = stack[sp--];
     long blkDiskOffset = blk * BUFFER_SIZE;
 
-    FILE *file = fopen("disk", "w");
-    if (file == nullptr) {
-        stack[++sp] = 0;
-        return;
-    }
-
-    if (fseek(file, blkDiskOffset, SEEK_SET) != 0) {
-        stack[++sp] = 0;
-        (void)fclose(file);
-        return;
-    }
-    if (fwrite(&memory.byte[addr], 1, BUFFER_SIZE, file) != BUFFER_SIZE) {
-        stack[++sp] = 0;
-        (void)fclose(file);
-        return;
-    }
-
-    if (fclose(file) != 0) {
-        stack[++sp] = 0;
-        return;
-    }
-
-    stack[++sp] = 1;
+    bool result = XWrite(&memory.byte[addr], blkDiskOffset, BUFFER_SIZE);
+    stack[++sp] = result ? 1 : 0;
 }
 
 // Modified from original model

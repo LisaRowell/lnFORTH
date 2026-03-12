@@ -19,9 +19,14 @@
 #ifndef PLATFORM_H
 #define PLATFORM_H
 
+#include <stddef.h>
+#include <stdint.h>
+
 extern void XInit();
 extern char XKey();
 extern char XDeleteKey();
 extern void XEmit(char character);
+extern bool XRead(uint8_t *addr, unsigned long blkDiskOffset, size_t length);
+extern bool XWrite(uint8_t *addr, unsigned long blkDiskOffset, size_t length);
 
 #endif // PLATFORM_H
