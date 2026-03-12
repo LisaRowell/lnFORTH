@@ -93,6 +93,7 @@ enum class Token : cell_t {
     DOCON,
     DOUSE,
     DOVAR,
+    ULESS,
     LESS,
     DODOE,
     DREAD,
@@ -1025,10 +1026,19 @@ void DefineEQUAL() {
     Word(";S");
 }
 
-void DefineULESS() {
-    Colon("U<");
-    Word("-");
-    Word("0<");
+void ULESS() {
+    CheckStack(2, 0);
+
+    cell_t n2 = stack[sp--];
+    cell_t n1 = stack[sp--];
+    cell_t f = n1 < n2 ? 1 : 0;
+    stack[++sp] = f;
+}
+
+void DefineUGREATER() {
+    Colon("U>");
+    Word("SWAP");
+    Word("U<");
     Word(";S");
 }
 
@@ -3079,6 +3089,8 @@ const char *TokenName(Token token) {
             return "DOUSE";
         case Token::DOVAR:
             return "DOVAR";
+        case Token::ULESS:
+            return "ULESS";
         case Token::LESS:
             return "LESS";
         case Token::DODOE:
@@ -3238,6 +3250,9 @@ inline void executeToken(Token token) {
             break;
         case Token::DOVAR:
             DOVAR();
+            break;
+        case Token::ULESS:
+            ULESS();
             break;
         case Token::LESS:
             LESS();
@@ -3418,7 +3433,8 @@ int main(int ac, char* av[]) {
     DefineCCOMMA();
     DefineSUB();
     DefineEQUAL();
-    DefineULESS();
+    Primitive("U<", Token::ULESS);
+    DefineUGREATER();
     Primitive("<", Token::LESS);
     DefineGREAT();
     DefineROT();
