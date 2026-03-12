@@ -57,7 +57,7 @@ char XKey() {
     return key;
 }
 
-char XDeleteCharacter() {
+char XDeleteKey() {
     return 0x7f;
 }
 

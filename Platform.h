@@ -21,7 +21,7 @@
 
 extern void XInit();
 extern char XKey();
-extern char XDeleteCharacter();
+extern char XDeleteKey();
 extern void XEmit(char character);
 
 #endif // PLATFORM_H
