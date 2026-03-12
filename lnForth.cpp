@@ -3315,7 +3315,7 @@ void InitUserMemory() {
     cell_t variablesToInit = memory.cell[ByteIndexToCellIndex(ORIG) + 2];
     for (cell_t i = 0; i < variablesToInit; i++) {
         memory.cell[ByteIndexToCellIndex(UAREA) + i] =
-            memory.cell[ByteIndexToCellIndex(ORIG) + 2 + i];
+            memory.cell[ByteIndexToCellIndex(ORIG) + 3 + i];
     }
 }
 
@@ -3607,9 +3607,9 @@ int main(int ac, char* av[]) {
         std::exit(1);
     }
 
-    memory.cell[ByteIndexToCellIndex(ORIG) + 5] = CellIndexToByteIndex(here);
     memory.cell[ByteIndexToCellIndex(ORIG) + 6] = CellIndexToByteIndex(here);
-    memory.cell[ByteIndexToCellIndex(ORIG) + 7] =
+    memory.cell[ByteIndexToCellIndex(ORIG) + 7] = CellIndexToByteIndex(here);
+    memory.cell[ByteIndexToCellIndex(ORIG) + 8] =
         CellIndexToByteIndex(forthLastWordReference + 1);
 
     if (dumpDictionary) {
