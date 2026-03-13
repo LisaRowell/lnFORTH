@@ -1247,6 +1247,7 @@ void DefineQLOAD() {
     Word("BLK");
     Word("@");
     Word("0=");
+    Word("LIT");
     Comma(0x16);
     Word("?ERROR");
     Word(";S");
