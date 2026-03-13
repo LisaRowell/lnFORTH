@@ -47,7 +47,7 @@ bool ParseBlocksArg(const char *blockString, unsigned &blocks) {
 void CreateDisk(const char *fileName, unsigned blocks) {
     std::ofstream file;
 
-    unsigned fileSize = blocks * 1024;
+    unsigned fileSize = blocks * 2048;
 
     file.open(fileName);
     if (!file.is_open()) {

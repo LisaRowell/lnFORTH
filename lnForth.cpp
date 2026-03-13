@@ -119,7 +119,7 @@ const cell_t TIBX = 0x0100;
 const cell_t ORIG = 0x0200;
 const cell_t UAREA = (cell_t)(memorySize * bytesPerCell) - 128;
 const cell_t NBUFFERS = 3;
-const cell_t BUFFER_SIZE = 1024;
+const cell_t BUFFER_SIZE = 2048;
 const cell_t MEM_BYTES_PER_BUFFER = BUFFER_SIZE + 2 * bytesPerCell;
 // Total buffer magnitude, in bytes
 const cell_t BMAG = NBUFFERS * MEM_BYTES_PER_BUFFER;
@@ -469,7 +469,7 @@ void PLOOP() {
     CheckReturnStack(2, 0);
 
     rStack[rp] += 1;
-    if (rStack[rp] < rStack[rp - 1]) {
+    if ((scell_t)rStack[rp] < (scell_t)rStack[rp - 1]) {
         ip += (scell_t)memory.cell[ip] / bytesPerCell;
     } else {
         ip++;
@@ -481,13 +481,17 @@ void PPLOO() {
     CheckStack(1, 0);
     CheckReturnStack(2, 0);
 
-    cell_t n = stack[sp--];
-    rStack[rp] += n;
-    if (rStack[rp] < rStack[rp - 1]) {
-        ip += (scell_t)memory.cell[ip] / bytesPerCell;
-    } else {
+    scell_t n = stack[sp--];
+    scell_t limit = rStack[rp - 1];
+    scell_t count = rStack[rp];
+
+    count += n;
+    if (((n < 0) && (count <= limit)) || ((n > 0) && (count >= limit))) {
         ip++;
         rp -= 2;
+    } else {
+        ip += (scell_t)memory.cell[ip] / bytesPerCell;
+        rStack[rp] = (cell_t)count;
     }
 }
 
@@ -1248,7 +1252,7 @@ void DefineCOMPILE() {
 }
 
 void DefineLBRAC() {
-    Colon("[");
+    Colon("[", immediateWordFlag);
     Word("0");
     Word("STATE");
     Word("!");
@@ -2631,7 +2635,7 @@ void DefineLOOP() {
 }
 
 void DefinePLOOP() {
-    Colon("+LOOP");
+    Colon("+LOOP", immediateWordFlag);
     Word("3");
     Word("?PAIRS");
     Word("COMPILE");
@@ -3394,8 +3398,8 @@ int main(int ac, char* av[]) {
     Constant("2", 2);
     Constant("3", 3);
     Constant("BL", (cell_t)' ');
-    Constant("C/L", 64);
-    Constant("L/SCR", 16);
+    Constant("C/L", 80);
+    Constant("L/SCR", 25);
     Constant("FIRST", DAREA);
     Constant("LIMIT", UAREA);
     Constant("B/BUF", BUFFER_SIZE);
