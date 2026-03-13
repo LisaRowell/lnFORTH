@@ -83,6 +83,7 @@ enum class Token : cell_t {
     DROP,
     SWAP,
     DUP,
+    PICK,
     PSTOR,
     TOGGLE,
     AT,
@@ -835,6 +836,15 @@ void DUP() {
 
     stack[sp + 1] = stack[sp];
     sp++;
+}
+
+void PICK() {
+    CheckStack(1, 0);
+
+    cell_t pos = stack[sp--];
+    CheckStack(pos + 1, 0);
+    cell_t value = stack[sp - pos];
+    stack[++sp] = value;
 }
 
 void PSTOR() {
@@ -3073,6 +3083,8 @@ const char *TokenName(Token token) {
             return "SWAP";
         case Token::DUP:
             return "DUP";
+        case Token::PICK:
+            return "PICK";
         case Token::PSTOR:
             return "PSTOR";
         case Token::TOGGLE:
@@ -3224,6 +3236,9 @@ inline void executeToken(Token token) {
             break;
         case Token::DUP:
             DUP();
+            break;
+        case Token::PICK:
+            PICK();
             break;
         case Token::PSTOR:
             PSTOR();
@@ -3380,6 +3395,7 @@ int main(int ac, char* av[]) {
     Primitive("DROP", Token::DROP);
     Primitive("SWAP", Token::SWAP);
     Primitive("DUP", Token::DUP);
+    Primitive("PICK", Token::PICK);
     Primitive("+!", Token::PSTOR);
     Primitive("TOGGLE", Token::TOGGLE);
     Primitive("@", Token::AT);
