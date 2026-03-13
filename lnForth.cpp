@@ -40,8 +40,8 @@ const size_t memorySize = 64*1024;
 const bool enableDataStackBoundsCheck = true;
 const bool enableReturnStackBoundsCheck = true;
 
-const bool debugWordCreation = true;
-const bool dumpDictionary = true;
+const bool debugWordCreation = false;
+const bool dumpDictionary = false;
 const bool traceVirtualMachine = false;
 
 enum class Token : cell_t {
