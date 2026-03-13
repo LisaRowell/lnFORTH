@@ -105,8 +105,9 @@ enum class Token : cell_t {
 // Similar to other Forth implementations, we store word names with a leading length and use the most
 // significant bits as flags
 const size_t maxWordNameLength = UINT8_MAX >> 2;
-const uint8_t wordValidFlag = 0x80;
+const uint8_t wordValidFlag     = 0x80;
 const uint8_t immediateWordFlag = 0x40;
+const uint8_t smudgeWordFlag    = 0x20;
 const uint8_t nameLengthMask = 0x1f;
 
 cell_t stack[dataStackSize];
@@ -540,7 +541,9 @@ void DIGI() {
 }
 
 bool WordNamesMatch(cell_t dictEntry, cell_t wordName) {
-    uint8_t dictLength = memory.byte[dictEntry++] & nameLengthMask;
+    // We include the smudge bit in the dictionary entries length field to
+    // prevent matches on incomplete words.
+    uint8_t dictLength = memory.byte[dictEntry++] & (nameLengthMask | smudgeWordFlag);
     uint8_t wordLength = memory.byte[wordName++] & nameLengthMask;
 
     if (dictLength != wordLength) {
@@ -1282,7 +1285,7 @@ void DefineSMUDG() {
     Colon("SMUDGE");
     Word("LATEST");
     Word("LIT");
-    Comma(0x20);
+    Comma(smudgeWordFlag);
     Word("TOGGLE");
     Word(";S");
 }
@@ -1645,30 +1648,6 @@ Label("L1916");
     Word("1+");
     Word("R>");
     Word("CMOVE");
-    Word(";S");
-}
-
-// This routine converts text to upper case.  It allows interpretation
-// from a terminal without a shift lock.
-void DefineUPPER() {
-    Colon("UPPER");
-    Word("OVER");
-    Word("+");
-    Word("SWAP");
-    Word("PDO");
-Label("L1950");
-    Word("I");
-    Word("C@");
-    Word("LIT");
-    Comma(0x5f);
-    Word(">");
-    ZBranch("L1961");
-    Word("I");
-    Word("LIT");
-    Comma(0x20);
-    Word("TOGGLE");
-Label("L1961");
-    Loop("L1950");
     Word(";S");
 }
 
