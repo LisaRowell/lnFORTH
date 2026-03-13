@@ -40,8 +40,9 @@ const size_t memorySize = 64*1024;
 const bool enableDataStackBoundsCheck = true;
 const bool enableReturnStackBoundsCheck = true;
 
-const bool debugWordCreation = false;
-const bool dumpDictionary = false;
+const bool debugWordCreation   = false;
+const bool dumpDictionary      = false;
+const bool debugStartup        = false;
 const bool traceVirtualMachine = false;
 
 enum class Token : cell_t {
@@ -3289,7 +3290,9 @@ void InitUserMemory() {
 }
 
 void VirtualMachine() {
-    std::cout << "Starting Virtual Machine" << std::endl;
+    if (debugStartup) {
+        std::cout << "Starting Virtual Machine" << std::endl;
+    }
 
     InitUserMemory();
 
@@ -3319,7 +3322,9 @@ int main(int ac, char* av[]) {
     rp = cellMax;
     here = ByteIndexToCellIndex(ORIG);
 
-    std::cout << "Building dictionary" << std::endl;
+    if (debugStartup) {
+        std::cout << "Building dictionary" << std::endl;
+    }
 
     // Cold start word
     Word("ABORT");
@@ -3567,7 +3572,9 @@ int main(int ac, char* av[]) {
     memory.cell[forthLastWordReference] = CellIndexToByteIndex(here);
     Primitive("MON", Token::MON);
 
-    std::cout << addrFormat(CellIndexToByteIndex(here)) << std::endl;
+    if (debugWordCreation) {
+        std::cout << addrFormat(CellIndexToByteIndex(here)) << std::endl;
+    }
 
     // At this point there shouldn't be any remaining unresolved forward references. If there are,
     // print them and bomb out.
