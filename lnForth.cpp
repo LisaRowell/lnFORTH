@@ -128,6 +128,7 @@ const cell_t MEM_BYTES_PER_BUFFER = BUFFER_SIZE + 2 * bytesPerCell;
 const cell_t BMAG = NBUFFERS * MEM_BYTES_PER_BUFFER;
 const cell_t DAREA = UAREA - BMAG; // Disk buffer area
 const cell_t MAX_BLOCK_NUMBER = 500;
+const cell_t maxInputLineLength = 128;
 
 const cell_t tibUserIndex       = 0;
 const cell_t widthUserIndex     = 1;
@@ -1523,7 +1524,7 @@ void DefineQUERY() {
     Word("TIB");
     Word("@");
     Word("LIT");
-    Comma(80);
+    Comma(maxInputLineLength);
     Word("EXPECT");
     Word("0");
     Word("IN");
@@ -3406,6 +3407,7 @@ int main(int ac, char* av[]) {
     Constant("B/BUF", BUFFER_SIZE);
     Constant("B/SCR", 1);
     Constant("B/CELL", bytesPerCell);
+    Constant("BUFFERS", NBUFFERS);
 
     DefinePORIG();
     User("TIB", tibUserIndex);
