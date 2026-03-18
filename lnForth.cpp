@@ -917,6 +917,7 @@ void DefineCOLON() {
     Word("CONTEXT");
     Word("!");
     Word("CREATE");
+    Word("SMUDGE");
     Word("]");
     SemicolonCode(Token::DOCOL);
 }
@@ -942,7 +943,6 @@ void DefineSEMICOLON() {
 void DefineCONST() {
     Colon("CONSTANT");
     Word("CREATE");
-    Word("SMUDGE");
     Word(",");
     SemicolonCode(Token::DOCON);
 }
@@ -1811,7 +1811,7 @@ void DefineIDDOT() {
 }
 
 void DefineCREAT() {
-    Colon("CREATE", immediateWordFlag);
+    Colon("CREATE");
     Word("TIB");
     Word("HERE");
     Word("LIT");
@@ -1840,7 +1840,7 @@ Label("L2163");
     Word("ALLOT");
     Word("DUP");
     Word("LIT");
-    Comma(0xa0);
+    Comma(0x80);       // Departure from mode. : sets the smudge bit itself
     Word("TOGGLE");
     // The following pads out the name field so that the link field is
     // cell aligned.
@@ -1859,9 +1859,10 @@ Label("CREATEPadDone");
     Word("CURRENT");
     Word("@");
     Word("!");
-    Word("HERE");
-    Word("B/CELL");
-    Word("+");
+    // For token threading we compile a token that has the word return the address
+    // of the parameter field (PFA). Words built with a DOES> will overright this.
+    Word("LIT");
+    Comma(static_cast<cell_t>(Token::DOVAR));
     Word(",");
     Word(";S");
 }
