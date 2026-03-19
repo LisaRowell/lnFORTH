@@ -445,7 +445,7 @@ inline cell_t CheckAddr(cell_t addr) {
                   << addrFormat(addr)
                   << " ip=" << addrFormat(CellIndexToByteIndex(ip))
                   << " w=" << addrFormat(addr) << std::endl;
-        return 12;  // This needs fixing!!!!
+        return 5;
     }
 
     return 0;
