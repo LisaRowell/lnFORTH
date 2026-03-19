@@ -109,7 +109,7 @@ const size_t maxWordNameLength = UINT8_MAX >> 2;
 const uint8_t wordValidFlag     = 0x80;
 const uint8_t immediateWordFlag = 0x40;
 const uint8_t smudgeWordFlag    = 0x20;
-const uint8_t nameLengthMask = 0x1f;
+const uint8_t nameLengthMask    = 0x1f;
 
 cell_t stack[dataStackSize];
 cell_t rStack[returnStackSize];
@@ -395,82 +395,106 @@ void PlusLoop(const char *labelName) {
     OffsetTo(labelName);
 }
 
-void CheckStack(cell_t needs, cell_t adds) {
+cell_t CheckStack(cell_t needs, cell_t adds) {
     if (enableDataStackBoundsCheck) {
-        // For now, this will check stack bounds and, if there's an issue, output an error message and exit.
-        // Later this should do something reasonable like throwing an exception or calling cold.
         if (needs && (sp == cellMax || sp + 1 < needs)) {
-            std::cerr << "Stack underflow detected!" << std::endl;
-            std::exit(1);
+            return 1;
         }
 
         if (((sp == cellMax) && (adds > dataStackSize)) ||
             ((sp != cellMax) && (adds + sp >= dataStackSize))) {
-            std::cerr << "Stack overflow detected!" << std::endl;
-            std::exit(1);
+            return 2;
         }
     }
+
+    return 0;
 }
 
-void CheckReturnStack(cell_t needs, cell_t adds) {
+#define CHECK_STACK(needs, adds)                            \
+    {                                                       \
+        cell_t csError;                                     \
+        if ((csError = CheckStack((needs), (adds))) != 0) { \
+            return csError;                                 \
+        }                                                   \
+    }
+
+cell_t CheckReturnStack(cell_t needs, cell_t adds) {
     if (enableReturnStackBoundsCheck) {
-        // For now, this will check stack bounds and, if there's an issue, output an error message and exit.
-        // Later this should do something reasonable like throwing an exception or calling cold.
         if (needs && (rp == cellMax || rp  + 1< needs)) {
-            std::cerr << "Return stack underflow detected!" << std::endl;
-            std::exit(1);
+            return 11;
         }
 
         if (((rp == cellMax) && (adds > returnStackSize)) ||
             ((rp != cellMax) && (adds + rp >= returnStackSize))) {
-            std::cerr << "Return stack overflow detected!" << std::endl;
-            std::exit(1);
+            return 12;
         }
     }
+
+    return 0;
 }
 
-inline void CheckAddr(cell_t addr) {
+#define CHECK_RETURN_STACK(needs, adds)                        \
+cell_t crsError;                                               \
+    if ((crsError = CheckReturnStack((needs), (adds))) != 0) { \
+        return crsError;                                       \
+}
+
+inline cell_t CheckAddr(cell_t addr) {
     if (addr > memorySize * bytesPerCell) {
         std::cerr << "Attempt to access illegal memory address "
                   << addrFormat(addr)
                   << " ip=" << addrFormat(CellIndexToByteIndex(ip))
                   << " w=" << addrFormat(addr) << std::endl;
-        std::exit(1);
+        return 12;  // This needs fixing!!!!
     }
+
+    return 0;
 }
 
-void LIT() {
-    CheckStack(0, 1);
+#define CHECK_ADDR(addr)                      \
+cell_t caError;                               \
+    if ((caError = CheckAddr((addr))) != 0) { \
+        return caError;                       \
+    }
+
+cell_t LIT() {
+    CHECK_STACK(0, 1);
 
     stack[++sp] = memory.cell[ip++];
+
+    return 0;
 }
 
-void ExecuteTokenNonInline(Token token);
-void EXEC() {
-    CheckStack(1, 0);
+cell_t ExecuteTokenNonInline(Token token);
+cell_t EXEC() {
+    CHECK_STACK(1, 0);
 
     w = stack[sp--];
     Token token = static_cast<Token>(memory.cell[ByteIndexToCellIndex(w)]);
 
-    ExecuteTokenNonInline(token);
+    return ExecuteTokenNonInline(token);
 }
 
-void BRAN() {
+cell_t BRAN() {
     ip += (scell_t)memory.cell[ip] / bytesPerCell;
+
+    return 0;
 }
 
-void ZBRAN() {
-    CheckStack(1, 0);
+cell_t ZBRAN() {
+    CHECK_STACK(1, 0);
 
     if(stack[sp--] == 0) {
         ip += (scell_t)memory.cell[ip] / bytesPerCell;
     } else {
         ip++;
     }
+
+    return 0;
 }
 
-void PLOOP() {
-    CheckReturnStack(2, 0);
+cell_t PLOOP() {
+    CHECK_RETURN_STACK(2, 0);
 
     rStack[rp] += 1;
     if ((scell_t)rStack[rp] < (scell_t)rStack[rp - 1]) {
@@ -479,11 +503,13 @@ void PLOOP() {
         ip++;
         rp -= 2;
     }
+
+    return 0;
 }
 
-void PPLOO() {
-    CheckStack(1, 0);
-    CheckReturnStack(2, 0);
+cell_t PPLOO() {
+    CHECK_STACK(1, 0);
+    CHECK_RETURN_STACK(2, 0);
 
     scell_t n = stack[sp--];
     scell_t limit = rStack[rp - 1];
@@ -497,41 +523,45 @@ void PPLOO() {
         ip += (scell_t)memory.cell[ip] / bytesPerCell;
         rStack[rp] = (cell_t)count;
     }
+
+    return 0;
 }
 
-void PDO() {
-    CheckStack(2, 0);
-    CheckReturnStack(0, 2);
+cell_t PDO() {
+    CHECK_STACK(2, 0);
+    CHECK_RETURN_STACK(0, 2);
 
     rStack[++rp] = stack[sp - 1];
     rStack[++rp] = stack[sp];
     sp -= 2;
+
+    return 0;
 }
 
-void DIGI() {
-    CheckStack(2, 0);
+cell_t DIGI() {
+    CHECK_STACK(2, 0);
 
     cell_t base = stack[sp--];
     char ch = (char)stack[sp--];
     char value;
     if (ch < '0') {
         stack[++sp] = 0;
-        return;
+        return 0;
     } else if (ch <= '9') {
         value = ch - '0';
     } else if (ch < 'A') {
         stack[++sp] = 0;
-        return;
+        return 0;
     } else if (ch <= 'Z') {
         value = 10 + ch - 'A';
     } else if (ch < 'a') {
         stack[++sp] = 0;
-        return;
+        return 0;
     } else if (ch <= 'z') {
         value = 10 + ch - 'a';
     } else {
         stack[++sp] = 0;
-        return;
+        return 0;
     }
 
     if (value >= base) {
@@ -540,6 +570,8 @@ void DIGI() {
         stack[++sp] = (cell_t)value;
         stack[++sp] = 1;
     }
+
+    return 0;
 }
 
 bool WordNamesMatch(cell_t dictEntry, cell_t wordName) {
@@ -568,9 +600,8 @@ inline uint8_t NameFieldLength(cell_t dictEntry) {
     return length;
 }
 
-void PFIND() {
-    CheckStack(2, 0);
-
+cell_t PFIND() {
+    CHECK_STACK(2, 0);
     cell_t dictEntry = stack[sp--];
     cell_t name = stack[sp--];
 
@@ -580,18 +611,21 @@ void PFIND() {
                                    bytesPerCell * 2);
             stack[++sp] = memory.byte[dictEntry];
             stack[++sp] = 1;
-            return;
+            return 0;
         }
 
         cell_t linkField = dictEntry + NameFieldLength(dictEntry);
         dictEntry = memory.cell[ByteIndexToCellIndex(linkField)];
+        CHECK_ADDR(dictEntry);
     } while (dictEntry != 0);
 
     stack[++sp] = 0;
+
+    return 0;
 }
 
-void ENCL() {
-    CheckStack(2, 2);
+cell_t ENCL() {
+    CHECK_STACK(2, 2);
 
     char c = (char)stack[sp--];
     cell_t addr = stack[sp];
@@ -605,7 +639,7 @@ void ENCL() {
     if (memory.byte[addr + n1] == 0) {
         stack[++sp] = n1 + 1;    // This might not be right. Allows for matching of NULL word
         stack[++sp] = n1;
-        return;
+        return 0;
     }
 
     cell_t n2 = n1 + 1;
@@ -616,23 +650,27 @@ void ENCL() {
 
     if (memory.byte[addr + n2] == 0) {
         stack[++sp] = n2;
-        return;
+        return 0;
     } else {
         stack[++sp] = n2 + 1;
     }
+
+    return 0;
 }
 
-void EMIT() {
-    CheckStack(1, 0);
+cell_t EMIT() {
+    CHECK_STACK(1, 0);
 
     char character = (char)stack[sp--];
     XEmit(character);
 
     memory.cell[ByteIndexToCellIndex(UAREA) + outUserIndex]++;
+
+    return 0;
 }
 
-void KEY() {
-    CheckStack(0, 1);
+cell_t KEY() {
+    CHECK_STACK(0, 1);
 
     char c;
     ssize_t count = read(STDIN_FILENO, &c, 1);
@@ -645,24 +683,30 @@ void KEY() {
         exit(0);
     } else if (count < 0) {
         std::cerr << "Error reading input in KEY: " << count << std::endl;
-        exit(1);
+        return 13;
     }
+
+    return 0;
 }
 
-void QTERM() {
+cell_t QTERM() {
     // It's not clear that this functionality is going to be implementable in modern systems.
     // For now, just return false.
-    CheckStack(0, 1);
+    CHECK_STACK(0, 1);
 
     stack[++sp] = 0;
+
+    return 0;
 }
 
-void CR() {
+cell_t CR() {
     std::cout << (char)10;
+
+    return 0;
 }
 
-void CMOVE() {
-    CheckStack(3, 0);
+cell_t CMOVE() {
+    CHECK_STACK(3, 0);
 
     cell_t count = stack[sp--];
     cell_t to = stack[sp--];
@@ -670,19 +714,24 @@ void CMOVE() {
     while (count--) {
         memory.byte[to++] = memory.byte[from++];
     }
+
+    return 0;
 }
 
-void USTAR() {
-    CheckStack(2, 0);
+cell_t USTAR() {
+    CHECK_STACK(2, 0);
+
     cell_t u1 = stack[sp];
     cell_t u2 = stack[sp - 1];
     double_t prod = u1 * u2;
     stack[sp - 1] = (cell_t)(prod & cellMax);
     stack[sp] = (cell_t)(prod >> bitsPerCell);
+
+    return 0;
 }
 
-void USLAS() {
-    CheckStack(3, 0);
+cell_t USLAS() {
+    CHECK_STACK(3, 0);
 
     double_t ud = (double_t)stack[sp - 2] | (((double_t)stack[sp - 1]) << bitsPerCell);
     cell_t u1 = stack[sp--];
@@ -690,107 +739,137 @@ void USLAS() {
     cell_t u3 = (cell_t)(ud / u1);
     stack[sp -1] = u2;
     stack[sp] = u3;
+
+    return 0;
 }
 
-void AND() {
-    CheckStack(2, 0);
+cell_t AND() {
+    CHECK_STACK(2, 0);
 
     cell_t a = stack[sp--];
     cell_t b = stack[sp];
     stack[sp] = a & b;
+
+    return 0;
 }
 
-void OR() {
-    CheckStack(2, 0);
+cell_t OR() {
+    CHECK_STACK(2, 0);
 
     cell_t a = stack[sp--];
     cell_t b = stack[sp];
     stack[sp] = a | b;
+
+    return 0;
 }
 
-void XOR() {
-    CheckStack(2, 0);
+cell_t XOR() {
+    CHECK_STACK(2, 0);
 
     cell_t a = stack[sp--];
     cell_t b = stack[sp];
     stack[sp] = a ^ b;
+
+    return 0;
 }
 
-void SPAT() {
-    CheckStack(0, 1);
+cell_t SPAT() {
+    CHECK_STACK(0, 1);
     cell_t pos = sp;
     stack[++sp] = pos;
+
+    return 0;
 }
 
-void SPSTO() {
+cell_t SPSTO() {
     // In the source figFORTH listing SP! sets the stack pointer to the contents of a
     // hidden user variable. Here we just set it to -1 (our empty) as the stack isn't addressable
     // anyway.
     sp = cellMax;
+
+    return 0;
 }
 
-void RPSTO() {
+cell_t RPSTO() {
     // In the source figFORTH listing SP! sets the return stack pointer to the contents of a
     // hidden user variable. Here we just set it to -1 (our empty) as the stack isn't addressable
     // anyway.
     rp = cellMax;
+
+    return 0;
 }
 
-void SEMIS() {
-    CheckReturnStack(1, 0);
+cell_t SEMIS() {
+    CHECK_RETURN_STACK(1, 0);
 
     ip = ByteIndexToCellIndex(rStack[rp--]);
+
+    return 0;
 }
 
-void LEAVE() {
-    CheckReturnStack(2, 0);
+cell_t LEAVE() {
+    CHECK_RETURN_STACK(2, 0);
 
     rStack[rp - 1] = rStack[rp];
+
+    return 0;
 }
 
-void TOR() {
-    CheckStack(1, 0);
-    CheckReturnStack(0, 1);
+cell_t TOR() {
+    CHECK_STACK(1, 0);
+    CHECK_RETURN_STACK(0, 1);
 
     rStack[++rp] = stack[sp--];
+
+    return 0;
 }
 
-void RFROM() {
-    CheckStack(0, 1);
-    CheckReturnStack(1, 0);
+cell_t RFROM() {
+    CHECK_STACK(0, 1);
+    CHECK_RETURN_STACK(1, 0);
 
     stack[++sp] = rStack[rp--];
+
+    return 0;
 }
 
-void R() {
-    CheckStack(0, 1);
-    CheckReturnStack(1, 0);
+cell_t R() {
+    CHECK_STACK(0, 1);
+    CHECK_RETURN_STACK(1, 0);
 
     stack[++sp] = rStack[rp];
+
+    return 0;
 }
 
-void ZEQU() {
-    CheckStack(1, 0);
+cell_t ZEQU() {
+    CHECK_STACK(1, 0);
 
     stack[sp] = stack[sp] == 0 ? 1 : 0;
+
+    return 0;
 }
 
-void ZLESS() {
-    CheckStack(1, 0);
+cell_t ZLESS() {
+    CHECK_STACK(1, 0);
 
     stack[sp] = (scell_t)stack[sp] < 0 ? 1 : 0;
+
+    return 0;
 }
 
-void PLUS() {
-    CheckStack(2, 0);
+cell_t PLUS() {
+    CHECK_STACK(2, 0);
 
     cell_t a = stack[sp--];
     cell_t b = stack[sp];
     stack[sp] = a + b;
+
+    return 0;
 }
 
-void DPLUS() {
-    CheckStack(4, 0);
+cell_t DPLUS() {
+    CHECK_STACK(4, 0);
 
     double_t d1 = (double_t)stack[sp - 3] | (((double_t)stack[sp - 2]) << bitsPerCell);
     double_t d2 = (double_t)stack[sp - 1] | (((double_t)stack[sp]) << bitsPerCell);
@@ -798,114 +877,142 @@ void DPLUS() {
     double_t dsum = d1 + d2;
     stack[sp - 1] = (cell_t)(dsum & cellMax);
     stack[sp] = (cell_t)(dsum >> bitsPerCell);
+
+    return 0;
 }
 
-void MINUS() {
-    CheckStack(1, 0);
+cell_t MINUS() {
+    CHECK_STACK(1, 0);
 
     stack[sp] = (~stack[sp]) + 1;
+
+    return 0;
 }
 
-void DMINUS() {
-    CheckStack(2, 0);
+cell_t DMINUS() {
+    CHECK_STACK(2, 0);
 
     double_t d1 = (double_t)stack[sp - 1] | (((double_t)stack[sp]) << bitsPerCell);
     double_t d2 = (~d1) + 1;
     stack[sp - 1] = (cell_t)(d2 & cellMax);
     stack[sp] = (cell_t)(d2 >> bitsPerCell);
+
+    return 0;
 }
 
-void OVER() {
-    CheckStack(2, 1);
+cell_t OVER() {
+    CHECK_STACK(2, 1);
 
     stack[sp + 1] = stack[sp - 1];
     sp++;
+
+    return 0;
 }
 
-void DROP() {
-    CheckStack(1, 0);
+cell_t DROP() {
+    CHECK_STACK(1, 0);
 
     sp--;
+
+    return 0;
 }
 
-void SWAP() {
-    CheckStack(2, 0);
+cell_t SWAP() {
+    CHECK_STACK(2, 0);
 
     cell_t temp = stack[sp - 1];
     stack[sp - 1] = stack[sp];
     stack[sp] = temp;
+
+    return 0;
 }
 
-void DUP() {
-    CheckStack(1, 1);
+cell_t DUP() {
+    CHECK_STACK(1, 1);
 
     stack[sp + 1] = stack[sp];
     sp++;
+
+    return 0;
 }
 
-void PICK() {
-    CheckStack(1, 0);
+cell_t PICK() {
+    CHECK_STACK(1, 0);
 
     cell_t pos = stack[sp--];
-    CheckStack(pos + 1, 0);
+    CHECK_STACK(pos + 1, 0);
     cell_t value = stack[sp - pos];
     stack[++sp] = value;
+
+    return 0;
 }
 
-void PSTOR() {
-    CheckStack(2, 0);
+cell_t PSTOR() {
+    CHECK_STACK(2, 0);
 
     cell_t addr = stack[sp--];
     cell_t n = stack[sp--];
     memory.cell[ByteIndexToCellIndex(addr)] += n;
+
+    return 0;
 }
 
-void TOGGLE() {
-    CheckStack(2, 0);
+cell_t TOGGLE() {
+    CHECK_STACK(2, 0);
 
     cell_t b = stack[sp--];
     cell_t addr = stack[sp--];
     memory.cell[ByteIndexToCellIndex(addr)] ^= b;
+
+    return 0;
 }
 
-void AT() {
-    CheckStack(1, 0);
+cell_t AT() {
+    CHECK_STACK(1, 0);
 
     cell_t addr = stack[sp--];
 
-    CheckAddr(addr);
+    CHECK_ADDR(addr);
     cell_t n = memory.cell[ByteIndexToCellIndex(addr)];
     stack[++sp] = n;
+
+    return 0;
 }
 
-void CAT() {
-    CheckStack(1, 0);
+cell_t CAT() {
+    CHECK_STACK(1, 0);
 
     cell_t addr = stack[sp--];
 
-    CheckAddr(addr);
+    CHECK_ADDR(addr);
     uint8_t n = memory.byte[addr];
     stack[++sp] = (cell_t)n;
+
+    return 0;
 }
 
-void STORE() {
-    CheckStack(2, 0);
+cell_t STORE() {
+    CHECK_STACK(2, 0);
 
     cell_t addr = stack[sp--];
     cell_t n = stack[sp--];
 
-    CheckAddr(addr);
+    CHECK_ADDR(addr);
     memory.cell[ByteIndexToCellIndex(addr)] = n;
+
+    return 0;
 }
 
-void CSTORE() {
-    CheckStack(2, 0);
+cell_t CSTORE() {
+    CHECK_STACK(2, 0);
 
     cell_t addr = stack[sp--];
     cell_t value = stack[sp--];
 
-    CheckAddr(addr);
+    CHECK_ADDR(addr);
     memory.byte[addr] = (uint8_t)value;
+
+    return 0;
 }
 
 void DefineCOLON() {
@@ -922,11 +1029,13 @@ void DefineCOLON() {
     SemicolonCode(Token::DOCOL);
 }
 
-void DOCOL() {
-    CheckReturnStack(0, 1);
+cell_t DOCOL() {
+    CHECK_RETURN_STACK(0, 1);
 
     rStack[++rp] = CellIndexToByteIndex(ip);
     ip = ByteIndexToCellIndex(w) + 1;
+
+    return 0;
 }
 
 
@@ -947,10 +1056,12 @@ void DefineCONST() {
     SemicolonCode(Token::DOCON);
 }
 
-void DOCON() {
-    CheckStack(0, 1);
+cell_t DOCON() {
+    CHECK_STACK(0, 1);
 
     stack[++sp] = memory.cell[ByteIndexToCellIndex(w) + 1];
+
+    return 0;
 }
 
 void DefineVAR() {
@@ -959,10 +1070,12 @@ void DefineVAR() {
     SemicolonCode(Token::DOVAR);
 }
 
-void DOVAR() {
-    CheckStack(0, 1);
+cell_t DOVAR() {
+    CHECK_STACK(0, 1);
 
     stack[++sp] = w + bytesPerCell;
+
+    return 0;
 }
 
 void DefineUSER() {
@@ -971,10 +1084,12 @@ void DefineUSER() {
     SemicolonCode(Token::DOUSE);
 }
 
-void DOUSE() {
-    CheckStack(0, 1);
+cell_t DOUSE() {
+    CHECK_STACK(0, 1);
 
     stack[++sp] = UAREA + memory.cell[ByteIndexToCellIndex(w) + 1];
+
+    return 0;
 }
 
 void DefinePORIG() {
@@ -1045,13 +1160,15 @@ void DefineEQUAL() {
     Word(";S");
 }
 
-void ULESS() {
-    CheckStack(2, 0);
+cell_t ULESS() {
+    CHECK_STACK(2, 0);
 
     cell_t n2 = stack[sp--];
     cell_t n1 = stack[sp--];
     cell_t f = n1 < n2 ? 1 : 0;
     stack[++sp] = f;
+
+    return 0;
 }
 
 void DefineUGREATER() {
@@ -1061,13 +1178,15 @@ void DefineUGREATER() {
     Word(";S");
 }
 
-void LESS() {
-    CheckStack(2, 0);
+cell_t LESS() {
+    CHECK_STACK(2, 0);
 
     scell_t n2 = (scell_t)stack[sp--];
     scell_t n1 = (scell_t)stack[sp--];
     cell_t f = n1 < n2 ? 1 : 0;
     stack[++sp] = f;
+
+    return 0;
 }
 
 void DefineGREAT() {
@@ -1348,13 +1467,15 @@ void DefineDOES() {
     SemicolonCode(Token::DODOE);
 }
 
-void DODOE() {
-    CheckStack(0, 1);
-    CheckReturnStack(0, 1);
+cell_t DODOE() {
+    CHECK_STACK(0, 1);
+    CHECK_RETURN_STACK(0, 1);
 
     rStack[++rp] = CellIndexToByteIndex(ip);
     ip = ByteIndexToCellIndex(memory.cell[ByteIndexToCellIndex(w) + 1]);
     stack[++sp] = w + (bytesPerCell * 2);
+
+    return 0;
 }
 
 void DefineCOUNT() {
@@ -2463,8 +2584,8 @@ void DefineNEXTSCREEN() {
     Word(";S");
 }
 
-void DREAD() {
-    CheckStack(2, 0);
+cell_t DREAD() {
+    CHECK_STACK(2, 0);
 
     cell_t blk = stack[sp--];
     cell_t addr = stack[sp--];
@@ -2472,10 +2593,12 @@ void DREAD() {
 
     bool result = XRead(&memory.byte[addr], blkDiskOffset, BUFFER_SIZE);
     stack[++sp] = result ? 1 : 0;
+
+    return 0;
 }
 
-void DWRITE() {
-    CheckStack(2, 0);
+cell_t DWRITE() {
+    CHECK_STACK(2, 0);
 
     cell_t blk = stack[sp--];
     cell_t addr = stack[sp--];
@@ -2483,6 +2606,8 @@ void DWRITE() {
 
     bool result = XWrite(&memory.byte[addr], blkDiskOffset, BUFFER_SIZE);
     stack[++sp] = result ? 1 : 0;
+
+    return 0;
 }
 
 // Modified from original model
@@ -2957,7 +3082,7 @@ Label("L3716");
     Word(";S");
 }
 
-void MON() {
+cell_t MON() {
     std::cout << std::endl << "Exiting with stack:";
     for (cell_t i = 0; i <= sp && sp != cellMax; i++) {
         std::cout << " "<< addrFormat(stack[i]);
@@ -3104,173 +3229,118 @@ const char *TokenName(Token token) {
     return "Unknown";
 };
 
-inline void executeToken(Token token) {
+inline cell_t executeToken(Token token) {
     switch(token) {
         case Token::LIT:
-            LIT();
-            break;
+            return LIT();
         case Token::EXEC:
-            EXEC();
-            break;
+            return EXEC();
         case Token::BRAN:
-            BRAN();
-            break;
+            return BRAN();
         case Token::ZBRAN:
-            ZBRAN();
-            break;
+            return ZBRAN();
         case Token::PLOOP:
-            PLOOP();
-            break;
+            return PLOOP();
         case Token::PPLOO:
-            PPLOO();
-            break;
+            return PPLOO();
         case Token::PDO:
-            PDO();
-            break;
+            return PDO();
         case Token::DIGI:
-            DIGI();
-            break;
+            return DIGI();
         case Token::PFIND:
-            PFIND();
-            break;
+            return PFIND();
         case Token::ENCL:
-            ENCL();
-            break;
+            return ENCL();
         case Token::EMIT:
-            EMIT();
-            break;
+            return EMIT();
         case Token::KEY:
-            KEY();
-            break;
+            return KEY();
         case Token::QTERM:
-            QTERM();
-            break;
+            return QTERM();
         case Token::CR:
-            CR();
-            break;
+            return CR();
         case Token::CMOVE:
-            CMOVE();
-            break;
+            return CMOVE();
         case Token::USTAR:
-            USTAR();
-            break;
+            return USTAR();
         case Token::USLAS:
-            USLAS();
-            break;
+            return USLAS();
         case Token::AND:
-            AND();
-            break;
+            return AND();
         case Token::OR:
-            OR();
-            break;
+            return OR();
         case Token::XOR:
-            XOR();
-            break;
+            return XOR();
         case Token::SPAT:
-            SPAT();
-            break;
+            return SPAT();
         case Token::SPSTO:
-            SPSTO();
-            break;
+            return SPSTO();
         case Token::RPSTO:
-            RPSTO();
-            break;
+            return RPSTO();
         case Token::SEMIS:
-            SEMIS();
-            break;
+            return SEMIS();
         case Token::LEAVE:
-            LEAVE();
-            break;
+            return LEAVE();
         case Token::TOR:
-            TOR();
-            break;
+            return TOR();
         case Token::RFROM:
-            RFROM();
-            break;
+            return RFROM();
         case Token::R:
-            R();
-            break;
+            return R();
         case Token::ZEQU:
-            ZEQU();
-            break;
+            return ZEQU();
         case Token::ZLESS:
-            ZLESS();
-            break;
+            return ZLESS();
         case Token::PLUS:
-            PLUS();
-            break;
+            return PLUS();
         case Token::DPLUS:
-            DPLUS();
-            break;
+            return DPLUS();
         case Token::MINUS:
-            MINUS();
-            break;
+            return MINUS();
         case Token::DMINUS:
-            DMINUS();
-            break;
+            return DMINUS();
         case Token::OVER:
-            OVER();
-            break;
+            return OVER();
         case Token::DROP:
-            DROP();
-            break;
+            return DROP();
         case Token::SWAP:
-            SWAP();
-            break;
+            return SWAP();
         case Token::DUP:
-            DUP();
-            break;
+            return DUP();
         case Token::PICK:
-            PICK();
-            break;
+            return PICK();
         case Token::PSTOR:
-            PSTOR();
-            break;
+            return PSTOR();
         case Token::TOGGLE:
-            TOGGLE();
-            break;
+            return TOGGLE();
         case Token::AT:
-            AT();
-            break;
+            return AT();
         case Token::CAT:
-            CAT();
-            break;
+            return CAT();
         case Token::STORE:
-            STORE();
-            break;
+            return STORE();
         case Token::CSTORE:
-            CSTORE();
-            break;
+            return CSTORE();
         case Token::DOCOL:
-            DOCOL();
-            break;
+            return DOCOL();
         case Token::DOCON:
-            DOCON();
-            break;
+            return DOCON();
         case Token::DOUSE:
-            DOUSE();
-            break;
+            return DOUSE();
         case Token::DOVAR:
-            DOVAR();
-            break;
+            return DOVAR();
         case Token::ULESS:
-            ULESS();
-            break;
+            return ULESS();
         case Token::LESS:
-            LESS();
-            break;
+            return LESS();
         case Token::DODOE:
-            DODOE();
-            break;
+            return DODOE();
         case Token::DREAD:
-            DREAD();
-            break;
+            return DREAD();
         case Token::DWRITE:
-            DWRITE();
-            break;
+            return DWRITE();
         case Token::MON:
-            MON();
-            break;
+            return MON();
         default:
             std::cerr << "Unimplemented token! (" << static_cast<cell_t>(token)
                       << ") ip=" << addrFormat(ip) << " w=" << addrFormat(w)
@@ -3280,15 +3350,15 @@ inline void executeToken(Token token) {
     }
 }
 
-void ExecuteTokenNonInline(Token token) {
-    executeToken(token);
+cell_t ExecuteTokenNonInline(Token token) {
+    return executeToken(token);
 }
 
 void InitUserMemory() {
-    cell_t variablesToInit = memory.cell[ByteIndexToCellIndex(ORIG) + 1];
+    cell_t variablesToInit = memory.cell[ByteIndexToCellIndex(ORIG) + 2];
     for (cell_t i = 0; i < variablesToInit; i++) {
         memory.cell[ByteIndexToCellIndex(UAREA) + i] =
-            memory.cell[ByteIndexToCellIndex(ORIG) + 2 + i];
+            memory.cell[ByteIndexToCellIndex(ORIG) + 3 + i];
     }
 }
 
@@ -3314,7 +3384,16 @@ void VirtualMachine() {
         }
 
         ip++;
-        executeToken(token);
+        cell_t error = executeToken(token);
+        if (error != 0) {
+            rp = cellMax;
+            sp = 0;
+            stack[sp] = error;
+            if (traceVirtualMachine) {
+                std::cout << TokenName(token) << " returned " << error << std::endl;
+            }
+            ip = ByteIndexToCellIndex(memory.cell[ByteIndexToCellIndex(ORIG) + 1]) + 1;
+        }
     }
 }
 
@@ -3331,6 +3410,8 @@ int main(int ac, char* av[]) {
 
     // Cold start word
     Word("ABORT");
+    // Error handling word
+    Word("ERROR");
 
     // Number of user area entries to initialize
     Comma(7);
@@ -3588,9 +3669,9 @@ int main(int ac, char* av[]) {
         std::exit(1);
     }
 
-    memory.cell[ByteIndexToCellIndex(ORIG) + 5] = CellIndexToByteIndex(here);
     memory.cell[ByteIndexToCellIndex(ORIG) + 6] = CellIndexToByteIndex(here);
-    memory.cell[ByteIndexToCellIndex(ORIG) + 7] =
+    memory.cell[ByteIndexToCellIndex(ORIG) + 7] = CellIndexToByteIndex(here);
+    memory.cell[ByteIndexToCellIndex(ORIG) + 8] =
         CellIndexToByteIndex(forthLastWordReference + 1);
 
     if (dumpDictionary) {
