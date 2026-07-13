@@ -83,6 +83,7 @@ enum class Token : cell_t {
     ZLESS,
     PLUS,
     DPLUS,
+    DLESS,
     MINUS,
     DMINUS,
     OVER,
@@ -900,6 +901,20 @@ cell_t DPLUS() {
     double_t dsum = d1 + d2;
     stack[sp - 1] = (cell_t)(dsum & cellMax);
     stack[sp] = (cell_t)(dsum >> bitsPerCell);
+
+    return 0;
+}
+
+cell_t DLESS() {
+    CHECK_STACK(4, 0);
+
+    sdouble_t d1 = (sdouble_t)stack[sp - 3] | (((sdouble_t)stack[sp - 2]) << bitsPerCell);
+    sdouble_t d2 = (sdouble_t)stack[sp - 1] | (((sdouble_t)stack[sp]) << bitsPerCell);
+    sp -= 3;
+
+    cell_t result = d1 < d2 ? trueValue : falseValue;
+
+    stack[sp] = result;
 
     return 0;
 }
@@ -3206,6 +3221,8 @@ const char *TokenName(Token token) {
             return "PLUS";
         case Token::DPLUS:
             return "DPLUS";
+        case Token::DLESS:
+            return "DLESS";
         case Token::MINUS:
             return "MINUS";
         case Token::DMINUS:
@@ -3326,6 +3343,8 @@ inline cell_t executeToken(Token token) {
             return PLUS();
         case Token::DPLUS:
             return DPLUS();
+        case Token::DLESS:
+            return DLESS();
         case Token::MINUS:
             return MINUS();
         case Token::DMINUS:
@@ -3490,6 +3509,7 @@ int main(int ac, char* av[]) {
     Primitive("0<", Token::ZLESS);
     Primitive("+", Token::PLUS);
     Primitive("D+", Token::DPLUS);
+    Primitive("D<", Token::DLESS);
     Primitive("MINUS", Token::MINUS);
     Primitive("DMINUS", Token::DMINUS);
     Primitive("OVER", Token::OVER);
