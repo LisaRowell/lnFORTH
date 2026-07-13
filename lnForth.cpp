@@ -30,6 +30,9 @@ const cell_t scellMax = 0x7fffffff;
 const cell_t cellPaddingMask = 0x00000003;
 #endif
 
+const cell_t trueValue = cellMax;
+const cell_t falseValue = 0;
+
 const uint8_t bytesPerCell = sizeof(cell_t);
 const uint8_t bitsPerCell = bytesPerCell * 8;
 
@@ -74,6 +77,8 @@ enum class Token : cell_t {
     TOR,
     RFROM,
     R,
+    IPRIME,
+    J,
     ZEQU,
     ZLESS,
     PLUS,
@@ -545,30 +550,30 @@ cell_t DIGI() {
     char ch = (char)stack[sp--];
     char value;
     if (ch < '0') {
-        stack[++sp] = 0;
+        stack[++sp] = falseValue;
         return 0;
     } else if (ch <= '9') {
         value = ch - '0';
     } else if (ch < 'A') {
-        stack[++sp] = 0;
+        stack[++sp] = falseValue;
         return 0;
     } else if (ch <= 'Z') {
         value = 10 + ch - 'A';
     } else if (ch < 'a') {
-        stack[++sp] = 0;
+        stack[++sp] = falseValue;
         return 0;
     } else if (ch <= 'z') {
         value = 10 + ch - 'a';
     } else {
-        stack[++sp] = 0;
+        stack[++sp] = falseValue;
         return 0;
     }
 
     if (value >= base) {
-        stack[++sp] = 0;
+        stack[++sp] = falseValue;
     } else {
         stack[++sp] = (cell_t)value;
-        stack[++sp] = 1;
+        stack[++sp] = trueValue;
     }
 
     return 0;
@@ -610,7 +615,7 @@ cell_t PFIND() {
             stack[++sp] = (cell_t)(dictEntry + NameFieldLength(dictEntry) +
                                    bytesPerCell * 2);
             stack[++sp] = memory.byte[dictEntry];
-            stack[++sp] = 1;
+            stack[++sp] = trueValue;
             return 0;
         }
 
@@ -619,7 +624,7 @@ cell_t PFIND() {
         CHECK_ADDR(dictEntry);
     } while (dictEntry != 0);
 
-    stack[++sp] = 0;
+    stack[++sp] = falseValue;
 
     return 0;
 }
@@ -737,7 +742,7 @@ cell_t USLAS() {
     cell_t u1 = stack[sp--];
     cell_t u2 = (cell_t)(ud % u1);
     cell_t u3 = (cell_t)(ud / u1);
-    stack[sp -1] = u2;
+    stack[sp - 1] = u2;
     stack[sp] = u3;
 
     return 0;
@@ -842,10 +847,28 @@ cell_t R() {
     return 0;
 }
 
+cell_t IPrime() {
+    CHECK_STACK(0, 1);
+    CHECK_RETURN_STACK(2, 0);
+
+    stack[++sp] = rStack[rp - 1];
+
+    return 0;
+}
+
+cell_t J() {
+    CHECK_STACK(0, 1);
+    CHECK_RETURN_STACK(3, 0);
+
+    stack[++sp] = rStack[rp - 2];
+
+    return 0;
+}
+
 cell_t ZEQU() {
     CHECK_STACK(1, 0);
 
-    stack[sp] = stack[sp] == 0 ? 1 : 0;
+    stack[sp] = stack[sp] == 0 ? trueValue : falseValue;
 
     return 0;
 }
@@ -853,7 +876,7 @@ cell_t ZEQU() {
 cell_t ZLESS() {
     CHECK_STACK(1, 0);
 
-    stack[sp] = (scell_t)stack[sp] < 0 ? 1 : 0;
+    stack[sp] = (scell_t)stack[sp] < 0 ? trueValue : falseValue;
 
     return 0;
 }
@@ -1165,7 +1188,7 @@ cell_t ULESS() {
 
     cell_t n2 = stack[sp--];
     cell_t n1 = stack[sp--];
-    cell_t f = n1 < n2 ? 1 : 0;
+    cell_t f = n1 < n2 ? trueValue : falseValue;
     stack[++sp] = f;
 
     return 0;
@@ -1183,7 +1206,7 @@ cell_t LESS() {
 
     scell_t n2 = (scell_t)stack[sp--];
     scell_t n1 = (scell_t)stack[sp--];
-    cell_t f = n1 < n2 ? 1 : 0;
+    cell_t f = n1 < n2 ? trueValue : falseValue;
     stack[++sp] = f;
 
     return 0;
@@ -1806,8 +1829,6 @@ Label("L1971");
 Label("L1998");
     Word("R>");
     Branch("L1971");
-    Word("BRANCH");
-    Comma(0xffe3);
 Label("L2001");
     Word("R>");
     Word(";S");
@@ -1826,7 +1847,9 @@ void DefineNUMBER() {
     Word("=");
     Word("DUP");
     Word(">R");
-    Word("+");
+    ZBranch("NUMBER1");  // Departure from the model to work with -1 as true
+    Word("1+");
+Label("NUMBER1");
     Word("LIT");
     Comma(cellMax);
 Label("L2023");
@@ -2179,7 +2202,7 @@ void DefineSTOD() {
     Colon("S->D");
     Word("DUP");
     Word("0<");
-    Word("MINUS");
+//    Word("MINUS");
     Word(";S");
 }
 
@@ -2592,7 +2615,7 @@ cell_t DREAD() {
     long blkDiskOffset = blk * BUFFER_SIZE;
 
     bool result = XRead(&memory.byte[addr], blkDiskOffset, BUFFER_SIZE);
-    stack[++sp] = result ? 1 : 0;
+    stack[++sp] = result ? trueValue : falseValue;
 
     return 0;
 }
@@ -2605,7 +2628,7 @@ cell_t DWRITE() {
     long blkDiskOffset = blk * BUFFER_SIZE;
 
     bool result = XWrite(&memory.byte[addr], blkDiskOffset, BUFFER_SIZE);
-    stack[++sp] = result ? 1 : 0;
+    stack[++sp] = result ? trueValue : falseValue;
 
     return 0;
 }
@@ -3171,6 +3194,10 @@ const char *TokenName(Token token) {
             return "RFROM";
         case Token::R:
             return "R";
+        case Token::IPRIME:
+            return "I'";
+        case Token::J:
+            return "J";
         case Token::ZEQU:
             return "ZEQU";
         case Token::ZLESS:
@@ -3287,6 +3314,10 @@ inline cell_t executeToken(Token token) {
             return RFROM();
         case Token::R:
             return R();
+        case Token::IPRIME:
+            return IPrime();
+        case Token::J:
+            return J();
         case Token::ZEQU:
             return ZEQU();
         case Token::ZLESS:
@@ -3453,6 +3484,8 @@ int main(int ac, char* av[]) {
     Primitive(">R", Token::TOR);
     Primitive("R>", Token::RFROM);
     Primitive("R", Token::R);
+    Primitive("I'", Token::IPRIME);
+    Primitive("J", Token::J);
     Primitive("0=", Token::ZEQU);
     Primitive("0<", Token::ZLESS);
     Primitive("+", Token::PLUS);
@@ -3477,6 +3510,8 @@ int main(int ac, char* av[]) {
     DefineVAR();
     DefineUSER();
 
+    Constant("TRUE", cellMax);
+    Constant("FALSE", 0);
     Constant("0", 0);
     Constant("1", 1);
     Constant("2", 2);
