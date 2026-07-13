@@ -516,12 +516,12 @@ cell_t PPLOO() {
     CHECK_STACK(1, 0);
     CHECK_RETURN_STACK(2, 0);
 
-    scell_t n = stack[sp--];
-    scell_t limit = rStack[rp - 1];
-    scell_t count = rStack[rp];
+    scell_t n = (scell_t)stack[sp--];
+    scell_t limit = (scell_t)rStack[rp - 1];
+    scell_t count = (scell_t)rStack[rp];
 
     count += n;
-    if (((n < 0) && (count <= limit)) || ((n > 0) && (count >= limit))) {
+    if (((n < 0) && (count < limit)) || ((n > 0) && (count >= limit))) {
         ip++;
         rp -= 2;
     } else {
