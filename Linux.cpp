@@ -20,6 +20,7 @@
 #include <termios.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/time.h>
 
 #include <iostream>
 
@@ -64,6 +65,15 @@ char XDeleteKey() {
 
 void XEmit(char character) {
     (void)write(STDIN_FILENO, &character, 1);
+}
+
+uint32_t XMillis() {
+    struct timeval time;
+
+    (void)gettimeofday(&time, NULL);
+    uint64_t millis = time.tv_sec * 1000 + time.tv_usec / 1000;
+
+    return (uint32_t)millis;
 }
 
 bool XRead(uint8_t *addr, unsigned long blkDiskOffset, size_t length) {

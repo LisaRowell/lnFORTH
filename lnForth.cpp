@@ -10,7 +10,7 @@
 
 #include "Platform.h"
 
-#define CELL_SIZE_32_BITS 1
+#define CELL_SIZE_16_BITS 1
 
 #ifdef CELL_SIZE_16_BITS
 typedef uint16_t cell_t;
@@ -62,6 +62,7 @@ enum class Token : cell_t {
     EMIT,
     KEY,
     QTERM,
+    MILLIS,
     CR,
     CMOVE,
     USTAR,
@@ -701,6 +702,14 @@ cell_t QTERM() {
     CHECK_STACK(0, 1);
 
     stack[++sp] = 0;
+
+    return 0;
+}
+
+cell_t MILLIS() {
+    CHECK_STACK(0, 1);
+
+    stack[++sp] = (cell_t)XMillis();
 
     return 0;
 }
@@ -3179,6 +3188,8 @@ const char *TokenName(Token token) {
             return "KEY";
         case Token::QTERM:
             return "QTERM";
+        case Token::MILLIS:
+            return "MILLIS";
         case Token::CR:
             return "CR";
         case Token::CMOVE:
@@ -3301,6 +3312,8 @@ inline cell_t executeToken(Token token) {
             return KEY();
         case Token::QTERM:
             return QTERM();
+        case Token::MILLIS:
+            return MILLIS();
         case Token::CR:
             return CR();
         case Token::CMOVE:
@@ -3488,6 +3501,7 @@ int main(int ac, char* av[]) {
     Primitive("EMIT", Token::EMIT);
     Primitive("KEY", Token::KEY);
     Primitive("?TERMINAL", Token::QTERM);
+    Primitive("MILLIS", Token::MILLIS);
     Primitive("CR", Token::CR);
     Primitive("CMOVE", Token::CMOVE);
     Primitive("U*", Token::USTAR);
@@ -3545,6 +3559,8 @@ int main(int ac, char* av[]) {
     Constant("B/SCR", 1);
     Constant("B/CELL", bytesPerCell);
     Constant("BUFFERS", NBUFFERS);
+    Constant("CELL-MAX", scellMax);
+    Constant("UCELL-MAX", cellMax);
 
     DefinePORIG();
     User("TIB", tibUserIndex);
