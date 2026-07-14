@@ -1113,7 +1113,9 @@ cell_t DOCON() {
 
 void DefineVAR() {
     Colon("VARIABLE");
-    Word("CONSTANT");
+    Word("CREATE");         // This is a departure from the figFORTH model which
+    Word("0");              // expected an initial variable value as an input
+    Word(",");
     SemicolonCode(Token::DOVAR);
 }
 
