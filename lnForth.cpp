@@ -615,7 +615,7 @@ cell_t PFIND() {
     do {
         if (WordNamesMatch(dictEntry, name)) {
             stack[++sp] = (cell_t)(dictEntry + NameFieldLength(dictEntry) +
-                                   bytesPerCell * 2);
+                                   bytesPerCell);
             stack[++sp] = memory.byte[dictEntry];
             stack[++sp] = trueValue;
             return 0;
@@ -1313,7 +1313,7 @@ void DefineCFA() {
 void DefineNFA() {
     Colon("NFA");
     Word("LIT");
-    Comma(bytesPerCell * 2 + 1);
+    Comma(bytesPerCell + 1);
     Word("-");
     Word("LIT");
     Comma(cellMax);
@@ -2010,7 +2010,7 @@ Label("L2163");
     Word("ALLOT");
     Word("DUP");
     Word("LIT");
-    Comma(0x80);       // Departure from mode. : sets the smudge bit itself
+    Comma(0x80);       // Departure from model. : sets the smudge bit itself
     Word("TOGGLE");
     // The following pads out the name field so that the link field is
     // cell aligned.
@@ -2044,7 +2044,6 @@ void DefineBCOMPILE() {
     Word("0");
     Word("?ERROR");
     Word("DROP");
-    Word("CFA");
     Word(",");
     Word(";S");
 }
@@ -2100,11 +2099,9 @@ Label("L2272");
     Word("@");
     Word("<");
     ZBranch("L2284");
-    Word("CFA");
     Word(",");
     Branch("L2286");
 Label("L2284");
-    Word("CFA");
     Word("EXECUTE");
 Label("L2286");
     Word("?STACK");
