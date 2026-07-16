@@ -2682,13 +2682,23 @@ Label("RSLWErrorCheck");
     Word(";S");
 }
 
+// The figFORTH model defined ' to be immediate, which does not match
+// later standards. Here we depart from figFORTH, making ' non-immediate
+// and adding an immediate ['].
 void DefineTICK() {
-    Colon("'", immediateWordFlag);
+    Colon("'");
     Word("-FIND");
     Word("0=");
     Word("0");
     Word("?ERROR");
     Word("DROP");
+    Word(";S");
+}
+
+// See above comment
+void DefineBTICK() {
+    Colon("[']", immediateWordFlag);
+    Word("'");
     Word("LITERAL");
     Word(";S");
 }
@@ -3694,6 +3704,7 @@ int main(int ac, char* av[]) {
     Primitive("DWRITE", Token::DWRITE);
     DefineRSLW();
     DefineTICK();
+    DefineBTICK();
     DefineFORG();
     DefineBACK();
     DefineBEGIN();
