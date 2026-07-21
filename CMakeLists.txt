@@ -7,8 +7,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_executable(lnFORTH lnForth.cpp
                        Linux.cpp
-                       Platform.h)
-add_executable(mkdisk mkdisk.cpp)
+                       Platform.h
+                       main.cpp
+                       lnForth.h)
+add_executable(mkdisk util/mkdisk.cpp)
 
 include(GNUInstallDirs)
 install(TARGETS lnFORTH
