@@ -9,6 +9,7 @@
 #include <set>
 
 #include "Platform.h"
+#include "lnFORTH.h"
 
 #define CELL_SIZE_16_BITS 1
 

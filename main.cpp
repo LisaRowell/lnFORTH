@@ -17,7 +17,7 @@
  */
 
 #include "Platform.h"
-#include "lnForth.h"
+#include "lnFORTH.h"
 
 #include <iostream>
 

@@ -5,11 +5,11 @@ project(lnFORTH LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_executable(lnFORTH lnForth.cpp
+add_executable(lnFORTH lnFORTH.cpp
                        Linux.cpp
                        Platform.h
                        main.cpp
-                       lnForth.h)
+                       lnFORTH.h)
 add_executable(mkdisk util/mkdisk.cpp)
 
 include(GNUInstallDirs)
