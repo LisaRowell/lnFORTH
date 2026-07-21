@@ -6,9 +6,9 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_executable(lnFORTH lnFORTH.cpp
-                       Linux.cpp
+                       linux/Linux.cpp
                        Platform.h
-                       main.cpp
+                       linux/main.cpp
                        lnFORTH.h)
 add_executable(mkdisk util/mkdisk.cpp)
 

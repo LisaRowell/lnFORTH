@@ -24,7 +24,7 @@
 
 #include <iostream>
 
-#include "Platform.h"
+#include "../Platform.h"
 
 static struct termios originalTermios;
 
