@@ -76,7 +76,7 @@ uint32_t XMillis() {
     return (uint32_t)millis;
 }
 
-bool XRead(uint8_t *addr, unsigned long blkDiskOffset, size_t length) {
+bool XRead(uint8_t *addr, uint32_t blkDiskOffset, size_t length) {
     FILE *file = fopen("disk", "r");
     if (file == nullptr) {
         return false;
@@ -98,7 +98,7 @@ bool XRead(uint8_t *addr, unsigned long blkDiskOffset, size_t length) {
     return true;
 }
 
-bool XWrite(uint8_t *addr, unsigned long blkDiskOffset, size_t length) {
+bool XWrite(uint8_t *addr, uint32_t blkDiskOffset, size_t length) {
     int file = open("disk", O_WRONLY);
     if (file < 0) {
         return false;

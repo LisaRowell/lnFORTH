@@ -27,7 +27,7 @@ extern char XKey();
 extern char XDeleteKey();
 extern void XEmit(char character);
 extern uint32_t XMillis();
-extern bool XRead(uint8_t *addr, unsigned long blkDiskOffset, size_t length);
-extern bool XWrite(uint8_t *addr, unsigned long blkDiskOffset, size_t length);
+extern bool XRead(uint8_t *addr, uint32_t blkDiskOffset, size_t length);
+extern bool XWrite(uint8_t *addr, uint32_t blkDiskOffset, size_t length);
 
 #endif // PLATFORM_H

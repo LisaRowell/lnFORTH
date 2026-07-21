@@ -2636,7 +2636,7 @@ cell_t DREAD() {
 
     cell_t blk = stack[sp--];
     cell_t addr = stack[sp--];
-    long blkDiskOffset = blk * BUFFER_SIZE;
+    uint32_t blkDiskOffset = blk * BUFFER_SIZE;
 
     bool result = XRead(&memory.byte[addr], blkDiskOffset, BUFFER_SIZE);
     stack[++sp] = result ? trueValue : falseValue;
@@ -2649,7 +2649,7 @@ cell_t DWRITE() {
 
     cell_t blk = stack[sp--];
     cell_t addr = stack[sp--];
-    long blkDiskOffset = blk * BUFFER_SIZE;
+    uint32_t blkDiskOffset = blk * BUFFER_SIZE;
 
     bool result = XWrite(&memory.byte[addr], blkDiskOffset, BUFFER_SIZE);
     stack[++sp] = result ? trueValue : falseValue;
