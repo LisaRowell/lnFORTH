@@ -3434,16 +3434,7 @@ void InitUserMemory() {
     }
 }
 
-void VirtualMachine() {
-    if (debugStartup) {
-        std::cout << "Starting Virtual Machine" << std::endl;
-    }
-
-    InitUserMemory();
-
-    cell_t cold = ByteIndexToCellIndex(memory.cell[ByteIndexToCellIndex(ORIG)]) + 1;
-
-    ip = cold;
+void RunVirtualMachine() {
     while(1) {
         w = memory.cell[ip];
         Token token = static_cast<Token>(memory.byte[w]);
@@ -3469,9 +3460,7 @@ void VirtualMachine() {
     }
 }
 
-int main(int ac, char* av[]) {
-    XInit();
-
+void buildDictionary() {
     sp = cellMax;
     rp = cellMax;
     here = ByteIndexToCellIndex(ORIG);
@@ -3758,6 +3747,20 @@ int main(int ac, char* av[]) {
     if (dumpDictionary) {
         DumpDictionary();
     }
+}
 
-    VirtualMachine();
+int main(int ac, char* av[]) {
+    XInit();
+
+    buildDictionary();
+    InitUserMemory();
+
+    if (debugStartup) {
+        std::cout << "Starting Virtual Machine" << std::endl;
+    }
+
+    cell_t cold = ByteIndexToCellIndex(memory.cell[ByteIndexToCellIndex(ORIG)]) + 1;
+    ip = cold;
+
+    RunVirtualMachine();
 }
