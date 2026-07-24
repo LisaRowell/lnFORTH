@@ -104,9 +104,7 @@ void Header(const char *name, uint8_t flags) {
     }
 
     cell_t byteHere = CellIndexToByteIndex(here);
-    if (debugWordCreation) {
-        logFile << addrFormat(byteHere) << " " << name << std::endl;
-    }
+    logFile << addrFormat(byteHere) << " " << name << std::endl;
 
     // Special case a "" name which we use to indicate the special word with a null string
     // as its name.
@@ -2252,7 +2250,7 @@ void DefineVLIST() {
     Word(";S");
 }
 
-void DumpDictionary() {
+void LogDictionary() {
     logFile << std::hex << std::setfill('0') << std::endl << "Memory dump:";
 
     cell_t byteHere = CellIndexToByteIndex(here);
@@ -2274,10 +2272,6 @@ void DumpForwardReferences() {
 
 void BuildDictionary() {
     here = ByteIndexToCellIndex(ORIG);
-
-    if (debugStartup) {
-        logFile << "Building dictionary" << std::endl;
-    }
 
     // Cold start word
     Word("ABORT");
@@ -2537,9 +2531,7 @@ void BuildDictionary() {
     memory.cell[forthLastWordReference] = CellIndexToByteIndex(here);
     Primitive("MON", Token::MON);
 
-    if (debugWordCreation) {
-        logFile << addrFormat(CellIndexToByteIndex(here)) << std::endl;
-    }
+    logFile << addrFormat(CellIndexToByteIndex(here)) << std::endl;
 
     // At this point there shouldn't be any remaining unresolved forward references. If there are,
     // print them and bomb out.
@@ -2554,10 +2546,6 @@ void BuildDictionary() {
     memory.cell[ByteIndexToCellIndex(ORIG) + 7] = CellIndexToByteIndex(here);
     memory.cell[ByteIndexToCellIndex(ORIG) + 8] =
         CellIndexToByteIndex(forthLastWordReference + 1);
-
-    if (dumpDictionary) {
-        DumpDictionary();
-    }
 }
 
 void WriteHFile() {
@@ -2596,18 +2584,18 @@ void WriteCPPFile() {
     cppFile << "#include \"lnFORTH.h\"" << std::endl;
     cppFile << std::endl;
 
-    cppFile << "const cell_t initialDictionary[initialDictionarySize] {"
-            << std::endl;
+    cppFile << "const cell_t initialDictionary[initialDictionarySize] {";
 
+    constexpr size_t wordsPerLine = 16 / bytesPerCell;
     for (size_t word = 0; word < here; word++) {
-        if (word % 8 == 0) {
+        if (word % wordsPerLine == 0) {
             cppFile << std::endl;
             cppFile << "    ";
         } else {
             cppFile << " ";
         }
-        cppFile << "0x" << std::hex << std::setw(bytesPerCell) << std::setfill('0')
-                << memory.cell[word];
+        cppFile << "0x" << std::hex << std::setw(bytesPerCell * 2)
+                << std::setfill('0') << memory.cell[word];
         if (word + 1 != here) {
             cppFile << ",";
         }
@@ -2628,6 +2616,7 @@ int main(int argc, char* argv[]) {
     logFile.open("Dictionary.log");
 
     BuildDictionary();
+    LogDictionary();
     WriteDictionary();
 
     logFile.close();
