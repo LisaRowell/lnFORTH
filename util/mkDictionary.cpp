@@ -2583,8 +2583,15 @@ void WriteCPPFile() {
     cppFile << "#include \"Dictionary.h\"" << std::endl;
     cppFile << "#include \"lnFORTH.h\"" << std::endl;
     cppFile << std::endl;
+    cppFile << "#ifdef ARDUINO" << std::endl;
+    cppFile << "#include <Arduino.h>" << std::endl;
+    cppFile << "#else" << std::endl;
+    cppFile << "#define PROGMEM" << std::endl;
+    cppFile << "#endif" << std::endl;
+    cppFile << std::endl;
 
-    cppFile << "const cell_t initialDictionary[initialDictionarySize] {";
+    cppFile << "PROGMEM const cell_t initialDictionary[initialDictionarySize] {"
+            << std::endl;
 
     constexpr size_t wordsPerLine = 16 / bytesPerCell;
     for (size_t word = 0; word < here; word++) {

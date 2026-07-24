@@ -20,10 +20,21 @@
 #include "lnFORTH.h"
 #include "Platform.h"
 
+#include <stdint.h>
 #include <stddef.h>
 
 #include <iostream>
 #include <iomanip>
+
+enum class TokenResult : uint16_t {
+    OK = 0,
+    STALL,
+    STACK_UNDERRUN,
+    STACK_OVERRUN,
+    RSTACK_UNDERRUN,
+    RSTACK_OVERRUN,
+    ILLEGAL_ACCESS
+};
 
 cell_t stack[dataStackSize];
 cell_t rStack[returnStackSize];
@@ -55,78 +66,84 @@ inline std::ostream& operator<<(std::ostream &out, addrFormat const &addr) {
     return out;
 }
 
-cell_t CheckStack(cell_t needs, cell_t adds) {
+TokenResult CheckStack(cell_t needs, cell_t adds) {
     if (enableDataStackBoundsCheck) {
         if (needs && (sp == cellMax || sp + 1 < needs)) {
-            return 1;
+            return TokenResult::STACK_UNDERRUN;
         }
 
         if (((sp == cellMax) && (adds > dataStackSize)) ||
             ((sp != cellMax) && (adds + sp >= dataStackSize))) {
-            return 2;
+            return TokenResult::STACK_OVERRUN;
         }
     }
 
-    return 0;
+    return TokenResult::OK;
 }
 
-#define CHECK_STACK(needs, adds)                            \
-{                                                       \
-        cell_t csError;                                     \
-        if ((csError = CheckStack((needs), (adds))) != 0) { \
-            return csError;                                 \
-    }                                                   \
+#define CHECK_STACK(needs, adds)                                        \
+{                                                                       \
+    TokenResult csError;                                                \
+    if ((csError = CheckStack((needs), (adds))) != TokenResult::OK) {   \
+        return csError;                                                 \
+    }                                                                   \
 }
 
-cell_t CheckReturnStack(cell_t needs, cell_t adds) {
+TokenResult CheckReturnStack(cell_t needs, cell_t adds) {
     if (enableReturnStackBoundsCheck) {
         if (needs && (rp == cellMax || rp  + 1< needs)) {
-            return 11;
+            return TokenResult::RSTACK_UNDERRUN;
         }
 
         if (((rp == cellMax) && (adds > returnStackSize)) ||
             ((rp != cellMax) && (adds + rp >= returnStackSize))) {
-            return 12;
+            return TokenResult::RSTACK_OVERRUN;
         }
     }
 
-    return 0;
+    return TokenResult::OK;
 }
 
-#define CHECK_RETURN_STACK(needs, adds)                        \
-cell_t crsError;                                               \
-    if ((crsError = CheckReturnStack((needs), (adds))) != 0) { \
-        return crsError;                                       \
+#define CHECK_RETURN_STACK(needs, adds)                                         \
+{                                                                               \
+    TokenResult crsError;                                                       \
+    if ((crsError = CheckReturnStack((needs), (adds))) != TokenResult::OK) {    \
+        return crsError;                                                        \
+    }                                                                           \
 }
 
-inline cell_t CheckAddr(cell_t addr) {
+inline TokenResult CheckAddr(cell_t addr) {
     if (addr > memorySize * bytesPerCell) {
-        std::cerr << "Attempt to access illegal memory address "
-                  << addrFormat(addr)
-                  << " ip=" << addrFormat(CellIndexToByteIndex(ip))
-                  << " w=" << addrFormat(addr) << std::endl;
-        return 5;
+        if (logMemoryErrors) {
+            std::cerr << "Attempt to access illegal memory address "
+                      << addrFormat(addr)
+                      << " ip=" << addrFormat(CellIndexToByteIndex(ip))
+                      << " w=" << addrFormat(addr) << std::endl;
+        }
+        return TokenResult::ILLEGAL_ACCESS;
     }
 
-    return 0;
+    return TokenResult::OK;
 }
 
-#define CHECK_ADDR(addr)                      \
-cell_t caError;                               \
-    if ((caError = CheckAddr((addr))) != 0) { \
-        return caError;                       \
+#define CHECK_ADDR(addr)                                    \
+{                                                           \
+    TokenResult caError;                                    \
+    if ((caError = CheckAddr((addr))) != TokenResult::OK) { \
+        return caError;                                     \
+    }                                                       \
 }
 
-cell_t LIT() {
+TokenResult LIT() {
     CHECK_STACK(0, 1);
 
     stack[++sp] = memory.cell[ip++];
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t ExecuteTokenNonInline(Token token);
-cell_t EXEC() {
+TokenResult ExecuteTokenNonInline(Token token);
+TokenResult EXEC() {
     CHECK_STACK(1, 0);
 
     w = stack[sp--];
@@ -135,13 +152,13 @@ cell_t EXEC() {
     return ExecuteTokenNonInline(token);
 }
 
-cell_t BRAN() {
+TokenResult BRAN() {
     ip += (scell_t)memory.cell[ip] / bytesPerCell;
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t ZBRAN() {
+TokenResult ZBRAN() {
     CHECK_STACK(1, 0);
 
     if(stack[sp--] == 0) {
@@ -150,10 +167,10 @@ cell_t ZBRAN() {
         ip++;
     }
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t PLOOP() {
+TokenResult PLOOP() {
     CHECK_RETURN_STACK(2, 0);
 
     rStack[rp] += 1;
@@ -164,10 +181,10 @@ cell_t PLOOP() {
         rp -= 2;
     }
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t PPLOO() {
+TokenResult PPLOO() {
     CHECK_STACK(1, 0);
     CHECK_RETURN_STACK(2, 0);
 
@@ -184,10 +201,10 @@ cell_t PPLOO() {
         rStack[rp] = (cell_t)count;
     }
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t PDO() {
+TokenResult PDO() {
     CHECK_STACK(2, 0);
     CHECK_RETURN_STACK(0, 2);
 
@@ -195,10 +212,10 @@ cell_t PDO() {
     rStack[++rp] = stack[sp];
     sp -= 2;
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t DIGI() {
+TokenResult DIGI() {
     CHECK_STACK(2, 0);
 
     cell_t base = stack[sp--];
@@ -206,22 +223,22 @@ cell_t DIGI() {
     char value;
     if (ch < '0') {
         stack[++sp] = falseValue;
-        return 0;
+        return TokenResult::OK;
     } else if (ch <= '9') {
         value = ch - '0';
     } else if (ch < 'A') {
         stack[++sp] = falseValue;
-        return 0;
+        return TokenResult::OK;
     } else if (ch <= 'Z') {
         value = 10 + ch - 'A';
     } else if (ch < 'a') {
         stack[++sp] = falseValue;
-        return 0;
+        return TokenResult::OK;
     } else if (ch <= 'z') {
         value = 10 + ch - 'a';
     } else {
         stack[++sp] = falseValue;
-        return 0;
+        return TokenResult::OK;
     }
 
     if (value >= base) {
@@ -231,7 +248,7 @@ cell_t DIGI() {
         stack[++sp] = trueValue;
     }
 
-    return 0;
+    return TokenResult::OK;
 }
 
 bool WordNamesMatch(cell_t dictEntry, cell_t wordName) {
@@ -260,7 +277,7 @@ inline uint8_t NameFieldLength(cell_t dictEntry) {
     return length;
 }
 
-cell_t PFIND() {
+TokenResult PFIND() {
     CHECK_STACK(2, 0);
     cell_t dictEntry = stack[sp--];
     cell_t name = stack[sp--];
@@ -271,7 +288,7 @@ cell_t PFIND() {
                                     bytesPerCell);
             stack[++sp] = memory.byte[dictEntry];
             stack[++sp] = trueValue;
-            return 0;
+            return TokenResult::OK;
         }
 
         cell_t linkField = dictEntry + NameFieldLength(dictEntry);
@@ -281,10 +298,10 @@ cell_t PFIND() {
 
     stack[++sp] = falseValue;
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t ENCL() {
+TokenResult ENCL() {
     CHECK_STACK(2, 2);
 
     char c = (char)stack[sp--];
@@ -299,7 +316,7 @@ cell_t ENCL() {
     if (memory.byte[addr + n1] == 0) {
         stack[++sp] = n1 + 1;    // This might not be right. Allows for matching of NULL word
         stack[++sp] = n1;
-        return 0;
+        return TokenResult::OK;
     }
 
     cell_t n2 = n1 + 1;
@@ -310,15 +327,15 @@ cell_t ENCL() {
 
     if (memory.byte[addr + n2] == 0) {
         stack[++sp] = n2;
-        return 0;
+        return TokenResult::OK;
     } else {
         stack[++sp] = n2 + 1;
     }
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t EMIT() {
+TokenResult EMIT() {
     CHECK_STACK(1, 0);
 
     char character = (char)stack[sp--];
@@ -326,43 +343,53 @@ cell_t EMIT() {
 
     memory.cell[ByteIndexToCellIndex(UAREA) + outUserIndex]++;
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t KEY() {
+// Because of the structure of Arduino "sketches", and the cooperative multitasking that takes
+// place under the hood when loop returns, KEY can be an issue since it can sit without returning.
+// We solve this problem with a return code that tells the virtual machine to stall instead of
+// advancing to the next word.
+TokenResult KEY() {
     CHECK_STACK(0, 1);
 
     char key = XKey();
-    stack[++sp] = (cell_t)key;
+    if (key != 0) {
+        stack[++sp] = (cell_t)key;
+    } else {
+        // See above explanation
+        return TokenResult::STALL;
+    }
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t QTERM() {
+TokenResult QTERM() {
     // It's not clear that this functionality is going to be implementable in modern systems.
     // For now, just return false.
     CHECK_STACK(0, 1);
 
     stack[++sp] = 0;
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t MILLIS() {
+TokenResult MILLIS() {
     CHECK_STACK(0, 1);
 
     stack[++sp] = (cell_t)XMillis();
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t CR() {
-    std::cout << (char)10;
+TokenResult CR() {
+    XEmit(10);
+//    std::cout << (char)10;
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t CMOVE() {
+TokenResult CMOVE() {
     CHECK_STACK(3, 0);
 
     cell_t count = stack[sp--];
@@ -372,10 +399,10 @@ cell_t CMOVE() {
         memory.byte[to++] = memory.byte[from++];
     }
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t USTAR() {
+TokenResult USTAR() {
     CHECK_STACK(2, 0);
 
     cell_t u1 = stack[sp];
@@ -384,10 +411,10 @@ cell_t USTAR() {
     stack[sp - 1] = (cell_t)(prod & cellMax);
     stack[sp] = (cell_t)(prod >> bitsPerCell);
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t USLAS() {
+TokenResult USLAS() {
     CHECK_STACK(3, 0);
 
     dcell_t ud = (dcell_t)stack[sp - 2] | (((dcell_t)stack[sp - 1]) << bitsPerCell);
@@ -397,153 +424,153 @@ cell_t USLAS() {
     stack[sp - 1] = u2;
     stack[sp] = u3;
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t AND() {
+TokenResult AND() {
     CHECK_STACK(2, 0);
 
     cell_t a = stack[sp--];
     cell_t b = stack[sp];
     stack[sp] = a & b;
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t OR() {
+TokenResult OR() {
     CHECK_STACK(2, 0);
 
     cell_t a = stack[sp--];
     cell_t b = stack[sp];
     stack[sp] = a | b;
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t XOR() {
+TokenResult XOR() {
     CHECK_STACK(2, 0);
 
     cell_t a = stack[sp--];
     cell_t b = stack[sp];
     stack[sp] = a ^ b;
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t SPAT() {
+TokenResult SPAT() {
     CHECK_STACK(0, 1);
     cell_t pos = sp;
     stack[++sp] = pos;
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t SPSTO() {
+TokenResult SPSTO() {
     // In the source figFORTH listing SP! sets the stack pointer to the contents of a
     // hidden user variable. Here we just set it to -1 (our empty) as the stack isn't addressable
     // anyway.
     sp = cellMax;
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t RPSTO() {
+TokenResult RPSTO() {
     // In the source figFORTH listing SP! sets the return stack pointer to the contents of a
     // hidden user variable. Here we just set it to -1 (our empty) as the stack isn't addressable
     // anyway.
     rp = cellMax;
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t SEMIS() {
+TokenResult SEMIS() {
     CHECK_RETURN_STACK(1, 0);
 
     ip = ByteIndexToCellIndex(rStack[rp--]);
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t LEAVE() {
+TokenResult LEAVE() {
     CHECK_RETURN_STACK(2, 0);
 
     rStack[rp - 1] = rStack[rp];
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t TOR() {
+TokenResult TOR() {
     CHECK_STACK(1, 0);
     CHECK_RETURN_STACK(0, 1);
 
     rStack[++rp] = stack[sp--];
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t RFROM() {
+TokenResult RFROM() {
     CHECK_STACK(0, 1);
     CHECK_RETURN_STACK(1, 0);
 
     stack[++sp] = rStack[rp--];
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t R() {
+TokenResult R() {
     CHECK_STACK(0, 1);
     CHECK_RETURN_STACK(1, 0);
 
     stack[++sp] = rStack[rp];
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t IPrime() {
+TokenResult IPrime() {
     CHECK_STACK(0, 1);
     CHECK_RETURN_STACK(2, 0);
 
     stack[++sp] = rStack[rp - 1];
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t J() {
+TokenResult J() {
     CHECK_STACK(0, 1);
     CHECK_RETURN_STACK(3, 0);
 
     stack[++sp] = rStack[rp - 2];
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t ZEQU() {
+TokenResult ZEQU() {
     CHECK_STACK(1, 0);
 
     stack[sp] = stack[sp] == 0 ? trueValue : falseValue;
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t ZLESS() {
+TokenResult ZLESS() {
     CHECK_STACK(1, 0);
 
     stack[sp] = (scell_t)stack[sp] < 0 ? trueValue : falseValue;
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t PLUS() {
+TokenResult PLUS() {
     CHECK_STACK(2, 0);
 
     cell_t a = stack[sp--];
     cell_t b = stack[sp];
     stack[sp] = a + b;
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t DPLUS() {
+TokenResult DPLUS() {
     CHECK_STACK(4, 0);
 
     dcell_t d1 = (dcell_t)stack[sp - 3] | (((dcell_t)stack[sp - 2]) << bitsPerCell);
@@ -553,10 +580,10 @@ cell_t DPLUS() {
     stack[sp - 1] = (cell_t)(dsum & cellMax);
     stack[sp] = (cell_t)(dsum >> bitsPerCell);
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t DLESS() {
+TokenResult DLESS() {
     CHECK_STACK(4, 0);
 
     sdcell_t d1 = (sdcell_t)stack[sp - 3] | (((sdcell_t)stack[sp - 2]) << bitsPerCell);
@@ -567,18 +594,18 @@ cell_t DLESS() {
 
     stack[sp] = result;
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t MINUS() {
+TokenResult MINUS() {
     CHECK_STACK(1, 0);
 
     stack[sp] = (~stack[sp]) + 1;
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t DMINUS() {
+TokenResult DMINUS() {
     CHECK_STACK(2, 0);
 
     dcell_t d1 = (dcell_t)stack[sp - 1] | (((dcell_t)stack[sp]) << bitsPerCell);
@@ -586,46 +613,46 @@ cell_t DMINUS() {
     stack[sp - 1] = (cell_t)(d2 & cellMax);
     stack[sp] = (cell_t)(d2 >> bitsPerCell);
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t OVER() {
+TokenResult OVER() {
     CHECK_STACK(2, 1);
 
     stack[sp + 1] = stack[sp - 1];
     sp++;
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t DROP() {
+TokenResult DROP() {
     CHECK_STACK(1, 0);
 
     sp--;
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t SWAP() {
+TokenResult SWAP() {
     CHECK_STACK(2, 0);
 
     cell_t temp = stack[sp - 1];
     stack[sp - 1] = stack[sp];
     stack[sp] = temp;
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t DUP() {
+TokenResult DUP() {
     CHECK_STACK(1, 1);
 
     stack[sp + 1] = stack[sp];
     sp++;
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t PICK() {
+TokenResult PICK() {
     CHECK_STACK(1, 0);
 
     cell_t pos = stack[sp--];
@@ -633,30 +660,30 @@ cell_t PICK() {
     cell_t value = stack[sp - pos];
     stack[++sp] = value;
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t PSTOR() {
+TokenResult PSTOR() {
     CHECK_STACK(2, 0);
 
     cell_t addr = stack[sp--];
     cell_t n = stack[sp--];
     memory.cell[ByteIndexToCellIndex(addr)] += n;
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t TOGGLE() {
+TokenResult TOGGLE() {
     CHECK_STACK(2, 0);
 
     cell_t b = stack[sp--];
     cell_t addr = stack[sp--];
     memory.cell[ByteIndexToCellIndex(addr)] ^= b;
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t AT() {
+TokenResult AT() {
     CHECK_STACK(1, 0);
 
     cell_t addr = stack[sp--];
@@ -665,10 +692,10 @@ cell_t AT() {
     cell_t n = memory.cell[ByteIndexToCellIndex(addr)];
     stack[++sp] = n;
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t CAT() {
+TokenResult CAT() {
     CHECK_STACK(1, 0);
 
     cell_t addr = stack[sp--];
@@ -677,10 +704,10 @@ cell_t CAT() {
     uint8_t n = memory.byte[addr];
     stack[++sp] = (cell_t)n;
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t STORE() {
+TokenResult STORE() {
     CHECK_STACK(2, 0);
 
     cell_t addr = stack[sp--];
@@ -689,10 +716,10 @@ cell_t STORE() {
     CHECK_ADDR(addr);
     memory.cell[ByteIndexToCellIndex(addr)] = n;
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t CSTORE() {
+TokenResult CSTORE() {
     CHECK_STACK(2, 0);
 
     cell_t addr = stack[sp--];
@@ -701,43 +728,43 @@ cell_t CSTORE() {
     CHECK_ADDR(addr);
     memory.byte[addr] = (uint8_t)value;
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t DOCOL() {
+TokenResult DOCOL() {
     CHECK_RETURN_STACK(0, 1);
 
     rStack[++rp] = CellIndexToByteIndex(ip);
     ip = ByteIndexToCellIndex(w) + 1;
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t DOCON() {
+TokenResult DOCON() {
     CHECK_STACK(0, 1);
 
     stack[++sp] = memory.cell[ByteIndexToCellIndex(w) + 1];
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t DOVAR() {
+TokenResult DOVAR() {
     CHECK_STACK(0, 1);
 
     stack[++sp] = w + bytesPerCell;
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t DOUSE() {
+TokenResult DOUSE() {
     CHECK_STACK(0, 1);
 
     stack[++sp] = UAREA + memory.cell[ByteIndexToCellIndex(w) + 1];
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t ULESS() {
+TokenResult ULESS() {
     CHECK_STACK(2, 0);
 
     cell_t n2 = stack[sp--];
@@ -745,10 +772,10 @@ cell_t ULESS() {
     cell_t f = n1 < n2 ? trueValue : falseValue;
     stack[++sp] = f;
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t LESS() {
+TokenResult LESS() {
     CHECK_STACK(2, 0);
 
     scell_t n2 = (scell_t)stack[sp--];
@@ -756,10 +783,10 @@ cell_t LESS() {
     cell_t f = n1 < n2 ? trueValue : falseValue;
     stack[++sp] = f;
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t DODOE() {
+TokenResult DODOE() {
     CHECK_STACK(0, 1);
     CHECK_RETURN_STACK(0, 1);
 
@@ -767,10 +794,10 @@ cell_t DODOE() {
     ip = ByteIndexToCellIndex(memory.cell[ByteIndexToCellIndex(w) + 1]);
     stack[++sp] = w + (bytesPerCell * 2);
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t DREAD() {
+TokenResult DREAD() {
     CHECK_STACK(2, 0);
 
     cell_t blk = stack[sp--];
@@ -780,10 +807,10 @@ cell_t DREAD() {
     bool result = XRead(&memory.byte[addr], blkDiskOffset, BUFFER_SIZE);
     stack[++sp] = result ? trueValue : falseValue;
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t DWRITE() {
+TokenResult DWRITE() {
     CHECK_STACK(2, 0);
 
     cell_t blk = stack[sp--];
@@ -793,15 +820,11 @@ cell_t DWRITE() {
     bool result = XWrite(&memory.byte[addr], blkDiskOffset, BUFFER_SIZE);
     stack[++sp] = result ? trueValue : falseValue;
 
-    return 0;
+    return TokenResult::OK;
 }
 
-cell_t MON() {
-    std::cout << std::endl << "Exiting with stack:";
-    for (cell_t i = 0; i <= sp && sp != cellMax; i++) {
-        std::cout << " "<< addrFormat(stack[i]);
-    }
-    std::cout << std::endl;
+TokenResult MON() {
+    (void)CR();
 
     std::exit(0);
 }
@@ -930,7 +953,7 @@ const char *TokenName(Token token) {
     return "Unknown";
 };
 
-inline cell_t executeToken(Token token) {
+inline TokenResult executeToken(Token token) {
     switch(token) {
     case Token::LIT:
         return LIT();
@@ -1051,15 +1074,16 @@ inline cell_t executeToken(Token token) {
     case Token::MON:
         return MON();
     default:
-        std::cerr << "Unimplemented token! (" << static_cast<cell_t>(token)
-                  << ") ip=" << addrFormat(ip) << " w=" << addrFormat(w)
-                  << std::endl;
-
+        if (logTokenErrors) {
+            std::cerr << "Unimplemented token! (" << static_cast<cell_t>(token)
+                      << ") ip=" << addrFormat(ip) << " w=" << addrFormat(w)
+                      << std::endl;
+        }
         std::exit(1);
     }
 }
 
-cell_t ExecuteTokenNonInline(Token token) {
+TokenResult ExecuteTokenNonInline(Token token) {
     return executeToken(token);
 }
 
@@ -1093,21 +1117,48 @@ void RunVirtualMachine() {
 
         if (traceVirtualMachine) {
             std::cout << "ip = " << addrFormat(CellIndexToByteIndex(ip))
-            << " w = " << addrFormat(w) << " "
-            << TokenName(token) << " (" << static_cast<cell_t>(token) << ")"
-            << " sp = " << sp << " rp = " << rp << std::endl;
+                      << " w = " << addrFormat(w) << " "
+                      << TokenName(token) << " (" << static_cast<cell_t>(token) << ")"
+                      << " sp = " << sp << " rp = " << rp << std::endl;
         }
 
         ip++;
-        cell_t error = executeToken(token);
-        if (error != 0) {
+        TokenResult result = executeToken(token);
+        if (result != TokenResult::OK) {
             rp = cellMax;
             sp = 0;
-            stack[sp] = error;
+            stack[sp] = (cell_t)result;
             if (traceVirtualMachine) {
-                std::cout << TokenName(token) << " returned " << error << std::endl;
+                std::cout << TokenName(token) << " returned " << (cell_t)result << std::endl;
             }
             ip = ByteIndexToCellIndex(memory.cell[ByteIndexToCellIndex(ORIG) + 1]) + 1;
         }
+    }
+}
+
+void StepVirtualMachine() {
+    w = memory.cell[ip];
+    Token token = static_cast<Token>(memory.byte[w]);
+
+    if (traceVirtualMachine) {
+        std::cout << "ip = " << addrFormat(CellIndexToByteIndex(ip))
+                  << " w = " << addrFormat(w) << " "
+                  << TokenName(token) << " (" << static_cast<cell_t>(token) << ")"
+                  << " sp = " << sp << " rp = " << rp << std::endl;
+    }
+
+    ip++;
+    TokenResult result = executeToken(token);
+    if (result == TokenResult::STALL) {
+        // See the KEY token for an explanation of this.
+        ip--;
+    } else if (result != TokenResult::OK) {
+        rp = cellMax;
+        sp = 0;
+        stack[sp] = (cell_t)result;
+        if (traceVirtualMachine) {
+            std::cout << TokenName(token) << " returned " << (cell_t)result << std::endl;
+        }
+        ip = ByteIndexToCellIndex(memory.cell[ByteIndexToCellIndex(ORIG) + 1]) + 1;
     }
 }

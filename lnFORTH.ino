@@ -16,18 +16,22 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef VIRTUAL_MACHINE_H
-#define VIRTUAL_MACHINE_H
+#include "Platform.h"
+#include "VirtualMachine.h"
+#include "Dictionary.h"
 
-#include "lnFORTH.h"
+#include <Arduino.h>
 
-#include <stddef.h>
+void setup() {
+    Serial.begin(9600);
 
-extern void InitDictionary(size_t initialDictionarySize,
-                           const cell_t *initialDictionary);
-extern void InitVirtualMachine();
-extern void InitUserMemory();
-extern void RunVirtualMachine();
-extern void StepVirtualMachine();
+    InitDictionary(initialDictionarySize, initialDictionary);
+    InitUserMemory();
+    InitVirtualMachine();
 
-#endif /* VIRTUAL_MACHINE_H */
+    Serial.println("Hello World!");
+}
+
+void loop() {
+    StepVirtualMachine();
+}

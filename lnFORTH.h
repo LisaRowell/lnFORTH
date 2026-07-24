@@ -52,11 +52,23 @@ const size_t dataStackSize = 256;
 const size_t returnStackSize = 256;
 const size_t memorySize = 64*1024;
 
-const bool enableDataStackBoundsCheck = true;
-const bool enableReturnStackBoundsCheck = true;
+constexpr bool enableDataStackBoundsCheck = true;
+constexpr bool enableReturnStackBoundsCheck = true;
 
-const bool debugStartup        = false;
-const bool traceVirtualMachine = false;
+#ifndef ARDUINO
+constexpr bool debugStartup        = false;
+constexpr bool traceVirtualMachine = false;
+constexpr bool logMemoryErrors     = true;
+constexpr bool logTokenErrors      = true;
+#else
+// The codebase current logs using std::cout, which doesn't work on Arduino.
+// Later add a better way to display error information so we're less blind
+// on embedded platforms.
+constexpr bool debugStartup        = false;
+constexpr bool traceVirtualMachine = false;
+constexpr bool logMemoryErrors     = false;
+constexpr bool logTokenErrors      = false;
+#endif
 
 enum class Token : cell_t {
     LIT,

@@ -16,18 +16,35 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef VIRTUAL_MACHINE_H
-#define VIRTUAL_MACHINE_H
+#include "Platform.h"
 
-#include "lnFORTH.h"
+#include <Arduino.h>
 
-#include <stddef.h>
+char XKey() {
+    if (Serial.available()) {
+        return Serial.read();
+    } else {
+        return 0;
+    }
+}
 
-extern void InitDictionary(size_t initialDictionarySize,
-                           const cell_t *initialDictionary);
-extern void InitVirtualMachine();
-extern void InitUserMemory();
-extern void RunVirtualMachine();
-extern void StepVirtualMachine();
+void XEmit(char character) {
+    Serial.print(character);
+}
 
-#endif /* VIRTUAL_MACHINE_H */
+uint32_t XMillis() {
+    return millis();
+}
+
+bool XRead(uint8_t *addr, uint32_t blkDiskOffset, size_t length) {
+    // Currently not implemented
+
+    return false;
+}
+
+bool XWrite(uint8_t *addr, uint32_t blkDiskOffset, size_t length) {
+    // Currently not implemented
+
+    return false;
+}
+
