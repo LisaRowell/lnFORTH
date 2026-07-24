@@ -35,8 +35,8 @@ const cell_t cellPaddingMask = 0x0001;
 #else
 typedef uint32_t cell_t;
 typedef int32_t scell_t;
-typedef uint64_t double_t;
-typedef int64_t sdouble_t;
+typedef uint64_t dcell_t;
+typedef int64_t sdcell_t;
 const cell_t cellMax = 0xffffffff;
 const cell_t scellMax = 0x7fffffff;
 const cell_t cellPaddingMask = 0x00000003;
