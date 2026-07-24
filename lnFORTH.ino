@@ -28,8 +28,6 @@ void setup() {
     InitDictionary(initialDictionarySize, initialDictionary);
     InitUserMemory();
     InitVirtualMachine();
-
-    Serial.println("Hello World!");
 }
 
 void loop() {
