@@ -16,172 +16,27 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "../lnFORTH.h"
+#include "../Platform.h"
+
 #include <stdint.h>
 #include <string.h>
 #include <unistd.h>
 #include <stdio.h>
 
 #include <iostream>
+#include <fstream>
 #include <iomanip>
 #include <map>
 #include <set>
 
-#include "Platform.h"
-#include "lnFORTH.h"
+static std::ofstream logFile;
 
-#define CELL_SIZE_16_BITS 1
-
-#ifdef CELL_SIZE_16_BITS
-typedef uint16_t cell_t;
-typedef int16_t scell_t;
-typedef uint32_t double_t;
-typedef int32_t sdouble_t;
-const cell_t cellMax = 0xffff;
-const cell_t scellMax = 0x7fff;
-const cell_t cellPaddingMask = 0x0001;
-#else
-typedef uint32_t cell_t;
-typedef int32_t scell_t;
-typedef uint64_t double_t;
-typedef int64_t sdouble_t;
-const cell_t cellMax = 0xffffffff;
-const cell_t scellMax = 0x7fffffff;
-const cell_t cellPaddingMask = 0x00000003;
-#endif
-
-const cell_t trueValue = cellMax;
-const cell_t falseValue = 0;
-
-const uint8_t bytesPerCell = sizeof(cell_t);
-const uint8_t bitsPerCell = bytesPerCell * 8;
-
-const size_t dataStackSize = 256;
-const size_t returnStackSize = 256;
-const size_t memorySize = 64*1024;
-
-const bool enableDataStackBoundsCheck = true;
-const bool enableReturnStackBoundsCheck = true;
-
-const bool debugWordCreation   = false;
-const bool dumpDictionary      = false;
-const bool debugStartup        = false;
-const bool traceVirtualMachine = false;
-
-enum class Token : cell_t {
-    LIT,
-    EXEC,
-    BRAN,
-    ZBRAN,
-    PLOOP,
-    PPLOO,
-    PDO,
-    DIGI,
-    PFIND,
-    ENCL,
-    EMIT,
-    KEY,
-    QTERM,
-    MILLIS,
-    CR,
-    CMOVE,
-    USTAR,
-    USLAS,
-    AND,
-    OR,
-    XOR,
-    SPAT,
-    SPSTO,
-    RPSTO,
-    SEMIS,
-    LEAVE,
-    TOR,
-    RFROM,
-    R,
-    IPRIME,
-    J,
-    ZEQU,
-    ZLESS,
-    PLUS,
-    DPLUS,
-    DLESS,
-    MINUS,
-    DMINUS,
-    OVER,
-    DROP,
-    SWAP,
-    DUP,
-    PICK,
-    PSTOR,
-    TOGGLE,
-    AT,
-    CAT,
-    STORE,
-    CSTORE,
-    DOCOL,
-    DOCON,
-    DOUSE,
-    DOVAR,
-    ULESS,
-    LESS,
-    DODOE,
-    DREAD,
-    DWRITE,
-    MON
-};
-
-// Similar to other Forth implementations, we store word names with a leading length and use the most
-// significant bits as flags
-const size_t maxWordNameLength = UINT8_MAX >> 2;
-const uint8_t wordValidFlag     = 0x80;
-const uint8_t immediateWordFlag = 0x40;
-const uint8_t smudgeWordFlag    = 0x20;
-const uint8_t nameLengthMask    = 0x1f;
-
-cell_t stack[dataStackSize];
-cell_t rStack[returnStackSize];
 union Mem {
     cell_t cell[memorySize];
     uint8_t byte[memorySize * bytesPerCell];
 } memory;
 
-const cell_t TIBX = 0x0100;
-const cell_t ORIG = 0x0200;
-const cell_t UAREA = (cell_t)(memorySize * bytesPerCell) - 128;
-const cell_t NBUFFERS = 3;
-const cell_t BUFFER_SIZE = 2048;
-const cell_t MEM_BYTES_PER_BUFFER = BUFFER_SIZE + 2 * bytesPerCell;
-// Total buffer magnitude, in bytes
-const cell_t BMAG = NBUFFERS * MEM_BYTES_PER_BUFFER;
-const cell_t DAREA = UAREA - BMAG; // Disk buffer area
-const cell_t MAX_BLOCK_NUMBER = 500;
-const cell_t maxInputLineLength = 128;
-
-const cell_t tibUserIndex       = 0;
-const cell_t widthUserIndex     = 1;
-const cell_t warningUserIndex   = 2;
-const cell_t fenceUserIndex     = 3;
-const cell_t dpUserIndex        = 4;
-const cell_t voclUserIndex      = 5;
-const cell_t deleteKeyUserIndex = 6;
-const cell_t blkUserIndex       = 7;
-const cell_t inUserIndex        = 8;
-const cell_t outUserIndex       = 9;
-const cell_t scrUserIndex       = 10;
-const cell_t offsetUserIndex    = 11;
-const cell_t contextUserIndex   = 12;
-const cell_t currentUserIndex   = 13;
-const cell_t stateUserIndex     = 14;
-const cell_t baseUserIndex      = 15;
-const cell_t dplUserIndex       = 16;
-const cell_t fldUserIndex       = 17;
-const cell_t cspUserIndex       = 18;
-const cell_t rnumUserIndex      = 19;
-const cell_t hldUserIndex       = 20;
-
-cell_t sp;
-cell_t rp;
-cell_t ip;
-cell_t w;
 cell_t here;
 cell_t forthLastWordReference;
 
@@ -194,7 +49,7 @@ std::map<const char *, cell_t> words;
 // initial dictionary, we check for unresolved references and flag them as errors.
 std::map<const char *, std::set<cell_t>> forwardReferences;
 
-// Label database to make writing branches simplar and less error prone
+// Label database to make writing branches simpler and less error prone
 std::map<const char *, cell_t> labels;
 
 // A mapping to find DOES> entry points while compiling the initial dictionary.
@@ -215,14 +70,6 @@ inline std::ostream& operator<<(std::ostream &out, addrFormat const &addr) {
 
     out.copyfmt(outState);
     return out;
-}
-
-static inline cell_t CellIndexToByteIndex(cell_t cellIndex) {
-    return cellIndex * bytesPerCell;
-}
-
-static inline cell_t ByteIndexToCellIndex(cell_t byteIndex) {
-    return byteIndex / bytesPerCell;
 }
 
 bool byteIndexCellAligned(cell_t byteIndex) {
@@ -258,7 +105,7 @@ void Header(const char *name, uint8_t flags) {
 
     cell_t byteHere = CellIndexToByteIndex(here);
     if (debugWordCreation) {
-        std::cout << addrFormat(byteHere) << " " << name << std::endl;
+        logFile << addrFormat(byteHere) << " " << name << std::endl;
     }
 
     // Special case a "" name which we use to indicate the special word with a null string
@@ -281,7 +128,7 @@ void Header(const char *name, uint8_t flags) {
     if (it != forwardReferences.end()) {
         std::set<cell_t> &references = it->second;
         for (auto it2 = references.begin();
-            it2 != references.end(); it2++) {
+             it2 != references.end(); it2++) {
             memory.cell[*it2] = byteHere;
         }
     }
@@ -381,7 +228,7 @@ void Label(const char *name) {
     if (it != forwardLabelReferences.end()) {
         std::set<cell_t> &references = it->second;
         for (auto it2 = references.begin();
-            it2 != references.end(); it2++) {
+             it2 != references.end(); it2++) {
             scell_t offset = here - *it2;
             memory.cell[*it2] = (cell_t)(offset * bytesPerCell);
         }
@@ -421,665 +268,6 @@ void PlusLoop(const char *labelName) {
     OffsetTo(labelName);
 }
 
-cell_t CheckStack(cell_t needs, cell_t adds) {
-    if (enableDataStackBoundsCheck) {
-        if (needs && (sp == cellMax || sp + 1 < needs)) {
-            return 1;
-        }
-
-        if (((sp == cellMax) && (adds > dataStackSize)) ||
-            ((sp != cellMax) && (adds + sp >= dataStackSize))) {
-            return 2;
-        }
-    }
-
-    return 0;
-}
-
-#define CHECK_STACK(needs, adds)                            \
-    {                                                       \
-        cell_t csError;                                     \
-        if ((csError = CheckStack((needs), (adds))) != 0) { \
-            return csError;                                 \
-        }                                                   \
-    }
-
-cell_t CheckReturnStack(cell_t needs, cell_t adds) {
-    if (enableReturnStackBoundsCheck) {
-        if (needs && (rp == cellMax || rp  + 1< needs)) {
-            return 11;
-        }
-
-        if (((rp == cellMax) && (adds > returnStackSize)) ||
-            ((rp != cellMax) && (adds + rp >= returnStackSize))) {
-            return 12;
-        }
-    }
-
-    return 0;
-}
-
-#define CHECK_RETURN_STACK(needs, adds)                        \
-cell_t crsError;                                               \
-    if ((crsError = CheckReturnStack((needs), (adds))) != 0) { \
-        return crsError;                                       \
-}
-
-inline cell_t CheckAddr(cell_t addr) {
-    if (addr > memorySize * bytesPerCell) {
-        std::cerr << "Attempt to access illegal memory address "
-                  << addrFormat(addr)
-                  << " ip=" << addrFormat(CellIndexToByteIndex(ip))
-                  << " w=" << addrFormat(addr) << std::endl;
-        return 5;
-    }
-
-    return 0;
-}
-
-#define CHECK_ADDR(addr)                      \
-cell_t caError;                               \
-    if ((caError = CheckAddr((addr))) != 0) { \
-        return caError;                       \
-    }
-
-cell_t LIT() {
-    CHECK_STACK(0, 1);
-
-    stack[++sp] = memory.cell[ip++];
-
-    return 0;
-}
-
-cell_t ExecuteTokenNonInline(Token token);
-cell_t EXEC() {
-    CHECK_STACK(1, 0);
-
-    w = stack[sp--];
-    Token token = static_cast<Token>(memory.cell[ByteIndexToCellIndex(w)]);
-
-    return ExecuteTokenNonInline(token);
-}
-
-cell_t BRAN() {
-    ip += (scell_t)memory.cell[ip] / bytesPerCell;
-
-    return 0;
-}
-
-cell_t ZBRAN() {
-    CHECK_STACK(1, 0);
-
-    if(stack[sp--] == 0) {
-        ip += (scell_t)memory.cell[ip] / bytesPerCell;
-    } else {
-        ip++;
-    }
-
-    return 0;
-}
-
-cell_t PLOOP() {
-    CHECK_RETURN_STACK(2, 0);
-
-    rStack[rp] += 1;
-    if ((scell_t)rStack[rp] < (scell_t)rStack[rp - 1]) {
-        ip += (scell_t)memory.cell[ip] / bytesPerCell;
-    } else {
-        ip++;
-        rp -= 2;
-    }
-
-    return 0;
-}
-
-cell_t PPLOO() {
-    CHECK_STACK(1, 0);
-    CHECK_RETURN_STACK(2, 0);
-
-    scell_t n = (scell_t)stack[sp--];
-    scell_t limit = (scell_t)rStack[rp - 1];
-    scell_t count = (scell_t)rStack[rp];
-
-    count += n;
-    if (((n < 0) && (count < limit)) || ((n > 0) && (count >= limit))) {
-        ip++;
-        rp -= 2;
-    } else {
-        ip += (scell_t)memory.cell[ip] / bytesPerCell;
-        rStack[rp] = (cell_t)count;
-    }
-
-    return 0;
-}
-
-cell_t PDO() {
-    CHECK_STACK(2, 0);
-    CHECK_RETURN_STACK(0, 2);
-
-    rStack[++rp] = stack[sp - 1];
-    rStack[++rp] = stack[sp];
-    sp -= 2;
-
-    return 0;
-}
-
-cell_t DIGI() {
-    CHECK_STACK(2, 0);
-
-    cell_t base = stack[sp--];
-    char ch = (char)stack[sp--];
-    char value;
-    if (ch < '0') {
-        stack[++sp] = falseValue;
-        return 0;
-    } else if (ch <= '9') {
-        value = ch - '0';
-    } else if (ch < 'A') {
-        stack[++sp] = falseValue;
-        return 0;
-    } else if (ch <= 'Z') {
-        value = 10 + ch - 'A';
-    } else if (ch < 'a') {
-        stack[++sp] = falseValue;
-        return 0;
-    } else if (ch <= 'z') {
-        value = 10 + ch - 'a';
-    } else {
-        stack[++sp] = falseValue;
-        return 0;
-    }
-
-    if (value >= base) {
-        stack[++sp] = falseValue;
-    } else {
-        stack[++sp] = (cell_t)value;
-        stack[++sp] = trueValue;
-    }
-
-    return 0;
-}
-
-bool WordNamesMatch(cell_t dictEntry, cell_t wordName) {
-    // We include the smudge bit in the dictionary entries length field to
-    // prevent matches on incomplete words.
-    uint8_t dictLength = memory.byte[dictEntry++] & (nameLengthMask | smudgeWordFlag);
-    uint8_t wordLength = memory.byte[wordName++] & nameLengthMask;
-
-    if (dictLength != wordLength) {
-        return false;
-    } else {
-        while (dictLength--) {
-            if ((memory.byte[dictEntry++] & 0xff) != memory.byte[wordName++]) {
-                return false;
-            }
-        }
-        return true;
-    }
-}
-
-inline uint8_t NameFieldLength(cell_t dictEntry) {
-    uint8_t length = (memory.byte[dictEntry] & nameLengthMask) + 1;
-    if (length & cellPaddingMask) {
-        length = (length & (uint8_t)(~cellPaddingMask)) + bytesPerCell;
-    }
-    return length;
-}
-
-cell_t PFIND() {
-    CHECK_STACK(2, 0);
-    cell_t dictEntry = stack[sp--];
-    cell_t name = stack[sp--];
-
-    do {
-        if (WordNamesMatch(dictEntry, name)) {
-            stack[++sp] = (cell_t)(dictEntry + NameFieldLength(dictEntry) +
-                                   bytesPerCell);
-            stack[++sp] = memory.byte[dictEntry];
-            stack[++sp] = trueValue;
-            return 0;
-        }
-
-        cell_t linkField = dictEntry + NameFieldLength(dictEntry);
-        dictEntry = memory.cell[ByteIndexToCellIndex(linkField)];
-        CHECK_ADDR(dictEntry);
-    } while (dictEntry != 0);
-
-    stack[++sp] = falseValue;
-
-    return 0;
-}
-
-cell_t ENCL() {
-    CHECK_STACK(2, 2);
-
-    char c = (char)stack[sp--];
-    cell_t addr = stack[sp];
-
-    cell_t n1 = 0;
-    while (memory.byte[addr + n1] == c && memory.byte[addr + n1] != 0) {
-        n1++;
-    }
-    stack[++sp] = n1;
-
-    if (memory.byte[addr + n1] == 0) {
-        stack[++sp] = n1 + 1;    // This might not be right. Allows for matching of NULL word
-        stack[++sp] = n1;
-        return 0;
-    }
-
-    cell_t n2 = n1 + 1;
-    while (memory.byte[addr + n2] != c && memory.byte[addr + n2] != 0) {
-        n2++;
-    }
-    stack[++sp] = n2;
-
-    if (memory.byte[addr + n2] == 0) {
-        stack[++sp] = n2;
-        return 0;
-    } else {
-        stack[++sp] = n2 + 1;
-    }
-
-    return 0;
-}
-
-cell_t EMIT() {
-    CHECK_STACK(1, 0);
-
-    char character = (char)stack[sp--];
-    XEmit(character);
-
-    memory.cell[ByteIndexToCellIndex(UAREA) + outUserIndex]++;
-
-    return 0;
-}
-
-cell_t KEY() {
-    CHECK_STACK(0, 1);
-
-    char c;
-    ssize_t count = read(STDIN_FILENO, &c, 1);
-
-    if (count == 1) {
-        stack[++sp] = (cell_t)c;
-    } else if (count == 0) {
-        // For now, if end of file is detected we exit.
-        std::cerr << "End of file in KEY. Exiting..." << std::endl;
-        exit(0);
-    } else if (count < 0) {
-        std::cerr << "Error reading input in KEY: " << count << std::endl;
-        return 13;
-    }
-
-    return 0;
-}
-
-cell_t QTERM() {
-    // It's not clear that this functionality is going to be implementable in modern systems.
-    // For now, just return false.
-    CHECK_STACK(0, 1);
-
-    stack[++sp] = 0;
-
-    return 0;
-}
-
-cell_t MILLIS() {
-    CHECK_STACK(0, 1);
-
-    stack[++sp] = (cell_t)XMillis();
-
-    return 0;
-}
-
-cell_t CR() {
-    std::cout << (char)10;
-
-    return 0;
-}
-
-cell_t CMOVE() {
-    CHECK_STACK(3, 0);
-
-    cell_t count = stack[sp--];
-    cell_t to = stack[sp--];
-    cell_t from = stack[sp--];
-    while (count--) {
-        memory.byte[to++] = memory.byte[from++];
-    }
-
-    return 0;
-}
-
-cell_t USTAR() {
-    CHECK_STACK(2, 0);
-
-    cell_t u1 = stack[sp];
-    cell_t u2 = stack[sp - 1];
-    double_t prod = u1 * u2;
-    stack[sp - 1] = (cell_t)(prod & cellMax);
-    stack[sp] = (cell_t)(prod >> bitsPerCell);
-
-    return 0;
-}
-
-cell_t USLAS() {
-    CHECK_STACK(3, 0);
-
-    double_t ud = (double_t)stack[sp - 2] | (((double_t)stack[sp - 1]) << bitsPerCell);
-    cell_t u1 = stack[sp--];
-    cell_t u2 = (cell_t)(ud % u1);
-    cell_t u3 = (cell_t)(ud / u1);
-    stack[sp - 1] = u2;
-    stack[sp] = u3;
-
-    return 0;
-}
-
-cell_t AND() {
-    CHECK_STACK(2, 0);
-
-    cell_t a = stack[sp--];
-    cell_t b = stack[sp];
-    stack[sp] = a & b;
-
-    return 0;
-}
-
-cell_t OR() {
-    CHECK_STACK(2, 0);
-
-    cell_t a = stack[sp--];
-    cell_t b = stack[sp];
-    stack[sp] = a | b;
-
-    return 0;
-}
-
-cell_t XOR() {
-    CHECK_STACK(2, 0);
-
-    cell_t a = stack[sp--];
-    cell_t b = stack[sp];
-    stack[sp] = a ^ b;
-
-    return 0;
-}
-
-cell_t SPAT() {
-    CHECK_STACK(0, 1);
-    cell_t pos = sp;
-    stack[++sp] = pos;
-
-    return 0;
-}
-
-cell_t SPSTO() {
-    // In the source figFORTH listing SP! sets the stack pointer to the contents of a
-    // hidden user variable. Here we just set it to -1 (our empty) as the stack isn't addressable
-    // anyway.
-    sp = cellMax;
-
-    return 0;
-}
-
-cell_t RPSTO() {
-    // In the source figFORTH listing SP! sets the return stack pointer to the contents of a
-    // hidden user variable. Here we just set it to -1 (our empty) as the stack isn't addressable
-    // anyway.
-    rp = cellMax;
-
-    return 0;
-}
-
-cell_t SEMIS() {
-    CHECK_RETURN_STACK(1, 0);
-
-    ip = ByteIndexToCellIndex(rStack[rp--]);
-
-    return 0;
-}
-
-cell_t LEAVE() {
-    CHECK_RETURN_STACK(2, 0);
-
-    rStack[rp - 1] = rStack[rp];
-
-    return 0;
-}
-
-cell_t TOR() {
-    CHECK_STACK(1, 0);
-    CHECK_RETURN_STACK(0, 1);
-
-    rStack[++rp] = stack[sp--];
-
-    return 0;
-}
-
-cell_t RFROM() {
-    CHECK_STACK(0, 1);
-    CHECK_RETURN_STACK(1, 0);
-
-    stack[++sp] = rStack[rp--];
-
-    return 0;
-}
-
-cell_t R() {
-    CHECK_STACK(0, 1);
-    CHECK_RETURN_STACK(1, 0);
-
-    stack[++sp] = rStack[rp];
-
-    return 0;
-}
-
-cell_t IPrime() {
-    CHECK_STACK(0, 1);
-    CHECK_RETURN_STACK(2, 0);
-
-    stack[++sp] = rStack[rp - 1];
-
-    return 0;
-}
-
-cell_t J() {
-    CHECK_STACK(0, 1);
-    CHECK_RETURN_STACK(3, 0);
-
-    stack[++sp] = rStack[rp - 2];
-
-    return 0;
-}
-
-cell_t ZEQU() {
-    CHECK_STACK(1, 0);
-
-    stack[sp] = stack[sp] == 0 ? trueValue : falseValue;
-
-    return 0;
-}
-
-cell_t ZLESS() {
-    CHECK_STACK(1, 0);
-
-    stack[sp] = (scell_t)stack[sp] < 0 ? trueValue : falseValue;
-
-    return 0;
-}
-
-cell_t PLUS() {
-    CHECK_STACK(2, 0);
-
-    cell_t a = stack[sp--];
-    cell_t b = stack[sp];
-    stack[sp] = a + b;
-
-    return 0;
-}
-
-cell_t DPLUS() {
-    CHECK_STACK(4, 0);
-
-    double_t d1 = (double_t)stack[sp - 3] | (((double_t)stack[sp - 2]) << bitsPerCell);
-    double_t d2 = (double_t)stack[sp - 1] | (((double_t)stack[sp]) << bitsPerCell);
-    sp -= 2;
-    double_t dsum = d1 + d2;
-    stack[sp - 1] = (cell_t)(dsum & cellMax);
-    stack[sp] = (cell_t)(dsum >> bitsPerCell);
-
-    return 0;
-}
-
-cell_t DLESS() {
-    CHECK_STACK(4, 0);
-
-    sdouble_t d1 = (sdouble_t)stack[sp - 3] | (((sdouble_t)stack[sp - 2]) << bitsPerCell);
-    sdouble_t d2 = (sdouble_t)stack[sp - 1] | (((sdouble_t)stack[sp]) << bitsPerCell);
-    sp -= 3;
-
-    cell_t result = d1 < d2 ? trueValue : falseValue;
-
-    stack[sp] = result;
-
-    return 0;
-}
-
-cell_t MINUS() {
-    CHECK_STACK(1, 0);
-
-    stack[sp] = (~stack[sp]) + 1;
-
-    return 0;
-}
-
-cell_t DMINUS() {
-    CHECK_STACK(2, 0);
-
-    double_t d1 = (double_t)stack[sp - 1] | (((double_t)stack[sp]) << bitsPerCell);
-    double_t d2 = (~d1) + 1;
-    stack[sp - 1] = (cell_t)(d2 & cellMax);
-    stack[sp] = (cell_t)(d2 >> bitsPerCell);
-
-    return 0;
-}
-
-cell_t OVER() {
-    CHECK_STACK(2, 1);
-
-    stack[sp + 1] = stack[sp - 1];
-    sp++;
-
-    return 0;
-}
-
-cell_t DROP() {
-    CHECK_STACK(1, 0);
-
-    sp--;
-
-    return 0;
-}
-
-cell_t SWAP() {
-    CHECK_STACK(2, 0);
-
-    cell_t temp = stack[sp - 1];
-    stack[sp - 1] = stack[sp];
-    stack[sp] = temp;
-
-    return 0;
-}
-
-cell_t DUP() {
-    CHECK_STACK(1, 1);
-
-    stack[sp + 1] = stack[sp];
-    sp++;
-
-    return 0;
-}
-
-cell_t PICK() {
-    CHECK_STACK(1, 0);
-
-    cell_t pos = stack[sp--];
-    CHECK_STACK(pos + 1, 0);
-    cell_t value = stack[sp - pos];
-    stack[++sp] = value;
-
-    return 0;
-}
-
-cell_t PSTOR() {
-    CHECK_STACK(2, 0);
-
-    cell_t addr = stack[sp--];
-    cell_t n = stack[sp--];
-    memory.cell[ByteIndexToCellIndex(addr)] += n;
-
-    return 0;
-}
-
-cell_t TOGGLE() {
-    CHECK_STACK(2, 0);
-
-    cell_t b = stack[sp--];
-    cell_t addr = stack[sp--];
-    memory.cell[ByteIndexToCellIndex(addr)] ^= b;
-
-    return 0;
-}
-
-cell_t AT() {
-    CHECK_STACK(1, 0);
-
-    cell_t addr = stack[sp--];
-
-    CHECK_ADDR(addr);
-    cell_t n = memory.cell[ByteIndexToCellIndex(addr)];
-    stack[++sp] = n;
-
-    return 0;
-}
-
-cell_t CAT() {
-    CHECK_STACK(1, 0);
-
-    cell_t addr = stack[sp--];
-
-    CHECK_ADDR(addr);
-    uint8_t n = memory.byte[addr];
-    stack[++sp] = (cell_t)n;
-
-    return 0;
-}
-
-cell_t STORE() {
-    CHECK_STACK(2, 0);
-
-    cell_t addr = stack[sp--];
-    cell_t n = stack[sp--];
-
-    CHECK_ADDR(addr);
-    memory.cell[ByteIndexToCellIndex(addr)] = n;
-
-    return 0;
-}
-
-cell_t CSTORE() {
-    CHECK_STACK(2, 0);
-
-    cell_t addr = stack[sp--];
-    cell_t value = stack[sp--];
-
-    CHECK_ADDR(addr);
-    memory.byte[addr] = (uint8_t)value;
-
-    return 0;
-}
 
 void DefineCOLON() {
     Colon(":", immediateWordFlag);
@@ -1094,16 +282,6 @@ void DefineCOLON() {
     Word("]");
     SemicolonCode(Token::DOCOL);
 }
-
-cell_t DOCOL() {
-    CHECK_RETURN_STACK(0, 1);
-
-    rStack[++rp] = CellIndexToByteIndex(ip);
-    ip = ByteIndexToCellIndex(w) + 1;
-
-    return 0;
-}
-
 
 void DefineSEMICOLON() {
     Colon(";", immediateWordFlag);
@@ -1122,14 +300,6 @@ void DefineCONST() {
     SemicolonCode(Token::DOCON);
 }
 
-cell_t DOCON() {
-    CHECK_STACK(0, 1);
-
-    stack[++sp] = memory.cell[ByteIndexToCellIndex(w) + 1];
-
-    return 0;
-}
-
 void DefineVAR() {
     Colon("VARIABLE");
     Word("CREATE");         // This is a departure from the figFORTH model which
@@ -1138,26 +308,10 @@ void DefineVAR() {
     SemicolonCode(Token::DOVAR);
 }
 
-cell_t DOVAR() {
-    CHECK_STACK(0, 1);
-
-    stack[++sp] = w + bytesPerCell;
-
-    return 0;
-}
-
 void DefineUSER() {
     Colon("USER");
     Word("CONSTANT");
     SemicolonCode(Token::DOUSE);
-}
-
-cell_t DOUSE() {
-    CHECK_STACK(0, 1);
-
-    stack[++sp] = UAREA + memory.cell[ByteIndexToCellIndex(w) + 1];
-
-    return 0;
 }
 
 void DefinePORIG() {
@@ -1228,33 +382,11 @@ void DefineEQUAL() {
     Word(";S");
 }
 
-cell_t ULESS() {
-    CHECK_STACK(2, 0);
-
-    cell_t n2 = stack[sp--];
-    cell_t n1 = stack[sp--];
-    cell_t f = n1 < n2 ? trueValue : falseValue;
-    stack[++sp] = f;
-
-    return 0;
-}
-
 void DefineUGREATER() {
     Colon("U>");
     Word("SWAP");
     Word("U<");
     Word(";S");
-}
-
-cell_t LESS() {
-    CHECK_STACK(2, 0);
-
-    scell_t n2 = (scell_t)stack[sp--];
-    scell_t n1 = (scell_t)stack[sp--];
-    cell_t f = n1 < n2 ? trueValue : falseValue;
-    stack[++sp] = f;
-
-    return 0;
 }
 
 void DefineGREAT() {
@@ -1285,7 +417,7 @@ void DefineDDUP() {
     Word("DUP");
     ZBranch("L1303");
     Word("DUP");
-Label("L1303");
+    Label("L1303");
     Word(";S");
 }
 
@@ -1353,7 +485,7 @@ void DefinePFA() {
     Word("AND");
     Word("+");
     Word("1+");
-Label("PFA1");
+    Label("PFA1");
     Word("DUP");
     Word("LIT");
     Comma(cellPaddingMask);
@@ -1361,7 +493,7 @@ Label("PFA1");
     ZBranch("PFA2");
     Word("1+");
     Branch("PFA1");
-Label("PFA2");
+    Label("PFA2");
     Word("LIT");
     Comma(bytesPerCell * 2);
     Word("+");
@@ -1382,9 +514,9 @@ void DefineQERR() {
     ZBranch("L1406");
     Word("ERROR");
     Branch("L1407");
-Label("L1406");
+    Label("L1406");
     Word("DROP");
-Label("L1407");
+    Label("L1407");
     Word(";S");
 }
 
@@ -1535,17 +667,6 @@ void DefineDOES() {
     SemicolonCode(Token::DODOE);
 }
 
-cell_t DODOE() {
-    CHECK_STACK(0, 1);
-    CHECK_RETURN_STACK(0, 1);
-
-    rStack[++rp] = CellIndexToByteIndex(ip);
-    ip = ByteIndexToCellIndex(memory.cell[ByteIndexToCellIndex(w) + 1]);
-    stack[++sp] = w + (bytesPerCell * 2);
-
-    return 0;
-}
-
 void DefineCOUNT() {
     Colon("COUNT");
     Word("DUP");
@@ -1563,15 +684,15 @@ void DefineTYPE() {
     Word("+");
     Word("SWAP");
     Word("(DO)");
-Label("L1644");
+    Label("L1644");
     Word("I");
     Word("C@");
     Word("EMIT");
     Loop("L1644");
     Branch("L1652");
-Label("L1651");
+    Label("L1651");
     Word("DROP");
-Label("L1652");
+    Label("L1652");
     Word(";S");
 }
 
@@ -1580,7 +701,7 @@ void DefineDTRAI() {
     Word("DUP");
     Word("0");
     Word("(DO)");
-Label("L1663");
+    Label("L1663");
     Word("OVER");
     Word("OVER");
     Word("+");
@@ -1592,10 +713,10 @@ Label("L1663");
     ZBranch("L1676");
     Word("LEAVE");
     Branch("L1678");
-Label("L1676");
+    Label("L1676");
     Word("1");
     Word("-");
-Label("L1678");
+    Label("L1678");
     Loop("L1663");
     Word(";S");
 }
@@ -1605,7 +726,7 @@ void DefinePDOTQ() {
     Word("R");
     Word("COUNT");
     Word("DUP");
-Label("PDOTQ1");
+    Label("PDOTQ1");
     Word("1+");
     Word("DUP");   // Added to skip padding
     Word("LIT");
@@ -1642,12 +763,12 @@ void DefineDOTQ() {
     Word("+");
     Word("ALLOT");
     Branch("L1723");
-Label("L1719");
+    Label("L1719");
     Word("WORD");
     Word("HERE");
     Word("COUNT");
     Word("TYPE");
-Label("L1723");
+    Label("L1723");
     Word(";S");
 }
 
@@ -1657,7 +778,7 @@ void DefineEXPEC() {
     Word("+");
     Word("OVER");
     Word("(DO)");
-Label("L1736");
+    Label("L1736");
     Word("KEY");
     Word("DUP");
     Word("DELETE-KEY");
@@ -1681,7 +802,7 @@ Label("L1736");
     Word(">R");
     Word("-");
     Branch("L1779");
-Label("L1760");
+    Label("L1760");
     Word("DUP");
     Word("LIT");
     Comma(0x0a);
@@ -1692,16 +813,16 @@ Label("L1760");
     Word("BL");
     Word("0");
     Branch("L1773");
-Label("L1772");
+    Label("L1772");
     Word("DUP");
-Label("L1773");
+    Label("L1773");
     Word("I");
     Word("C!");
     Word("0");
     Word("I");
     Word("1+");
     Word("C!");
-Label("L1779");
+    Label("L1779");
     Word("EMIT");
     Loop("L1736");
     Word("DROP");
@@ -1745,12 +866,12 @@ void DefineX() {
     Word("?EXEC");
     Word("R>");
     Word("DROP");
-Label("L1828");
+    Label("L1828");
     Branch("L1832");
-Label("L1830");
+    Label("L1830");
     Word("R>");
     Word("DROP");
-Label("L1832");
+    Label("L1832");
     Word(";S");
 }
 
@@ -1814,10 +935,10 @@ void DefineWORD() {
     Word("@");
     Word("BLOCK");
     Branch("L1916");
-Label("L1914");
+    Label("L1914");
     Word("TIB");
     Word("@");
-Label("L1916");
+    Label("L1916");
     Word("IN");
     Word("@");
     Word("+");
@@ -1845,7 +966,7 @@ Label("L1916");
 
 void DefinePNUMB() {
     Colon("(NUMBER)");
-Label("L1971");
+    Label("L1971");
     Word("1+");
     Word("DUP");
     Word(">R");
@@ -1871,10 +992,10 @@ Label("L1971");
     Word("1");
     Word("DPL");
     Word("+!");
-Label("L1998");
+    Label("L1998");
     Word("R>");
     Branch("L1971");
-Label("L2001");
+    Label("L2001");
     Word("R>");
     Word(";S");
 }
@@ -1894,10 +1015,10 @@ void DefineNUMBER() {
     Word(">R");
     ZBranch("NUMBER1");  // Departure from the model to work with -1 as true
     Word("1+");
-Label("NUMBER1");
+    Label("NUMBER1");
     Word("LIT");
     Comma(cellMax);
-Label("L2023");
+    Label("L2023");
     Word("DPL");
     Word("!");
     Word("(NUMBER)");
@@ -1915,12 +1036,12 @@ Label("L2023");
     Word("?ERROR");
     Word("0");
     Branch("L2023");
-Label("L2042");
+    Label("L2042");
     Word("DROP");
     Word("R>");
     ZBranch("L2047");
     Word("DMINUS");
-Label("L2047");
+    Label("L2047");
     Word(";S");
 }
 
@@ -1940,7 +1061,7 @@ void DefineDFIND() {
     Word("HERE");
     Word("LATEST");
     Word("(FIND)");
-Label("L2073");
+    Label("L2073");
     Word(";S");
 }
 
@@ -1957,7 +1078,7 @@ void DefineERROR() {
     Word("0<");
     ZBranch("L2096");
     Word("(ABORT)");
-Label("L2096");
+    Label("L2096");
     Word("HERE");
     Word("COUNT");
     Word("TYPE");
@@ -2018,7 +1139,7 @@ void DefineCREAT() {
     Comma(4);
     Word("MESSAGE");
     Word("SPACE");
-Label("L2163");
+    Label("L2163");
     Word("HERE");
     Word("DUP");
     Word("C@");
@@ -2033,7 +1154,7 @@ Label("L2163");
     Word("TOGGLE");
     // The following pads out the name field so that the link field is
     // cell aligned.
-Label("CREATEPadLoop");
+    Label("CREATEPadLoop");
     Word("HERE");
     Word("LIT");
     Comma(cellPaddingMask);
@@ -2042,7 +1163,7 @@ Label("CREATEPadLoop");
     Word("0");
     Word("C,");
     Branch("CREATEPadLoop");
-Label("CREATEPadDone");
+    Label("CREATEPadDone");
     Word("LATEST");
     Word(",");
     Word("CURRENT");
@@ -2075,7 +1196,7 @@ void DefineLITER() {
     Word("COMPILE");
     Word("LIT");
     Word(",");
-Label("L2226");
+    Label("L2226");
     Word(";S");
 }
 
@@ -2087,7 +1208,7 @@ void DefineDLIT() {
     Word("SWAP");
     Word("LITERAL");
     Word("LITERAL");
-Label("L2242");
+    Label("L2242");
     Word(";S");
 }
 
@@ -2111,7 +1232,7 @@ void DefineQSTAC() {
 
 void DefineINTER() {
     Colon("INTERPRET");
-Label("L2272");
+    Label("L2272");
     Word("-FIND");
     ZBranch("L2289");
     Word("STATE");
@@ -2120,12 +1241,12 @@ Label("L2272");
     ZBranch("L2284");
     Word(",");
     Branch("L2286");
-Label("L2284");
+    Label("L2284");
     Word("EXECUTE");
-Label("L2286");
+    Label("L2286");
     Word("?STACK");
     Branch("L2302");
-Label("L2289");
+    Label("L2289");
     Word("HERE");
     Word("NUMBER");
     Word("DPL");
@@ -2134,12 +1255,12 @@ Label("L2289");
     ZBranch("L2299");
     Word("DLITERAL");
     Branch("L2301");
-Label("L2299");
+    Label("L2299");
     Word("DROP");
     Word("LITERAL");
-Label("L2301");
+    Label("L2301");
     Word("?STACK");
-Label("L2302");
+    Label("L2302");
     Branch("L2272");
 }
 
@@ -2210,7 +1331,7 @@ void DefineQUIT() {
     Word("BLK");
     Word("!");
     Word("[");
-Label("L2388");
+    Label("L2388");
     Word("RP!");
     Word("CR");
     Word("QUERY");
@@ -2221,7 +1342,7 @@ Label("L2388");
     ZBranch("L2399");
     Word("(.\")");
     String("OK");
-Label("L2399");
+    Label("L2399");
     Branch("L2388");
     Word(";S");
 }
@@ -2244,7 +1365,7 @@ void DefineSTOD() {
     Colon("S->D");
     Word("DUP");
     Word("0<");
-//    Word("MINUS");
+    //    Word("MINUS");
     Word(";S");
 }
 
@@ -2253,7 +1374,7 @@ void DefinePM() {
     Word("0<");
     ZBranch("L2471");
     Word("MINUS");
-Label("L2471");
+    Label("L2471");
     Word(";S");
 }
 
@@ -2262,7 +1383,7 @@ void DefineDPM() {
     Word("0<");
     ZBranch("L2483");
     Word("DMINUS");
-Label("L2483");
+    Label("L2483");
     Word(";S");
 }
 
@@ -2287,7 +1408,7 @@ void DefineMIN() {
     Word(">");
     ZBranch("L2517");
     Word("SWAP");
-Label("L2517");
+    Label("L2517");
     Word("DROP");
     Word(";S");
 }
@@ -2299,7 +1420,7 @@ void DefineMAX() {
     Word("<");
     ZBranch("L2532");
     Word("SWAP");
-Label("L2532");
+    Label("L2532");
     Word("DROP");
     Word(";S");
 }
@@ -2411,7 +1532,7 @@ void DefinePBUF() {
     ZBranch("L2691");
     Word("DROP");
     Word("FIRST");
-Label("L2691");
+    Label("L2691");
     Word("DUP");
     Word("PREV");
     Word("@");
@@ -2446,7 +1567,7 @@ void DefineFLUSH() {
     Word("1+");
     Word("0");
     Word("(DO)");
-Label("L2835");
+    Label("L2835");
     Word("LIT");
     Comma(scellMax);
     Word("BUFFER");
@@ -2479,7 +1600,7 @@ void DefineBUFFR() {
     Word("@");
     Word("DUP");
     Word(">R");
-Label("L2758");
+    Label("L2758");
     Word("+BUF");
     ZBranch("L2758");
     Word("USE");
@@ -2498,7 +1619,7 @@ Label("L2758");
     Word("AND");
     Word("0");
     Word("R/W");
-Label("L2776");
+    Label("L2776");
     Word("R");
     Word("!");
     Word("R");
@@ -2525,7 +1646,7 @@ void DefineBLOCK() {
     Word("DUP");
     Word("+");
     ZBranch("L2830");
-Label("L2805");
+    Label("L2805");
     Word("+BUF");
     Word("0=");
     ZBranch("L2818");
@@ -2538,7 +1659,7 @@ Label("L2805");
     Word("R/W");
     Word("B/CELL");
     Word("-");
-Label("L2818");
+    Label("L2818");
     Word("DUP");
     Word("@");
     Word("R");
@@ -2550,7 +1671,7 @@ Label("L2818");
     Word("DUP");
     Word("PREV");
     Word("!");
-Label("L2830");
+    Label("L2830");
     Word("R>");
     Word("DROP");
     Word("B/CELL");
@@ -2597,13 +1718,13 @@ void DefineMESS() {
     Word("/");
     Word("-");
     Word(".LINE");
-Label("L2886");
+    Label("L2886");
     Branch("L2891");
-Label("L2888");
+    Label("L2888");
     Word("(.\")");
     String("MSG # ");
     Word(".");
-Label("L2891");
+    Label("L2891");
     Word(";S");
 }
 
@@ -2649,32 +1770,6 @@ void DefineNEXTSCREEN() {
     Word(";S");
 }
 
-cell_t DREAD() {
-    CHECK_STACK(2, 0);
-
-    cell_t blk = stack[sp--];
-    cell_t addr = stack[sp--];
-    uint32_t blkDiskOffset = blk * BUFFER_SIZE;
-
-    bool result = XRead(&memory.byte[addr], blkDiskOffset, BUFFER_SIZE);
-    stack[++sp] = result ? trueValue : falseValue;
-
-    return 0;
-}
-
-cell_t DWRITE() {
-    CHECK_STACK(2, 0);
-
-    cell_t blk = stack[sp--];
-    cell_t addr = stack[sp--];
-    uint32_t blkDiskOffset = blk * BUFFER_SIZE;
-
-    bool result = XWrite(&memory.byte[addr], blkDiskOffset, BUFFER_SIZE);
-    stack[++sp] = result ? trueValue : falseValue;
-
-    return 0;
-}
-
 // Modified from original model
 void DefineRSLW() {
     Colon("R/W");
@@ -2688,9 +1783,9 @@ void DefineRSLW() {
     ZBranch("RSLWWrite");
     Word("DREAD");
     Branch("RSLWErrorCheck");
-Label("RSLWWrite");
+    Label("RSLWWrite");
     Word("DWRITE");
-Label("RSLWErrorCheck");
+    Label("RSLWErrorCheck");
     Word("0=");
     Word("LIT");
     Comma(8);
@@ -2733,7 +1828,7 @@ void DefineFORG() {
     Word(">R");
     Word("VOC-LINK");
     Word("@");
-Label("L3220");
+    Label("L3220");
     Word("R");
     Word("OVER");
     Word("U<");
@@ -2745,12 +1840,12 @@ Label("L3220");
     Word("VOC-LINK");
     Word("!");
     Branch("L3220");
-Label("L3225");
+    Label("L3225");
     Word("DUP");
     Word("LIT");
     Comma(bytesPerCell * 2);
     Word("-");
-Label("L3228");
+    Label("L3228");
     Word("PFA");
     Word("LFA");
     Word("@");
@@ -2807,7 +1902,7 @@ void DefineTHEN() {
     Word("ENDIF");
     Word(";S");
 }
- 
+
 void DefineDO() {
     Colon("DO", immediateWordFlag);
     Word("COMPILE");
@@ -2918,10 +2013,10 @@ void DefineSPACS() {
     ZBranch("L3455");
     Word("0");
     Word("(DO)");
-Label("L3452");
+    Label("L3452");
     Word("SPACE");
     Loop("L3452");
-Label("L3455");
+    Label("L3455");
     Word(";S");
 }
 
@@ -2953,7 +2048,7 @@ void DefineSIGN() {
     Word("LIT");
     Comma(0x2d);
     Word("HOLD");
-Label("L3496");
+    Label("L3496");
     Word(";S");
 }
 
@@ -2971,7 +2066,7 @@ void DefineDIG() {
     Word("LIT");
     Comma(7);
     Word("+");
-Label("L3517");
+    Label("L3517");
     Word("LIT");
     Comma(0x30);
     Word("+");
@@ -2981,7 +2076,7 @@ Label("L3517");
 
 void DefineDIGS() {
     Colon("#S");
-Label("L3529");
+    Label("L3529");
     Word("#");
     Word("OVER");
     Word("OVER");
@@ -3053,7 +2148,7 @@ void DefineLIST() {
     Word("L/SCR");
     Word("0");
     Word("(DO)");
-Label("L3620");
+    Label("L3620");
     Word("CR");
     Word("I");
     Word("3");
@@ -3074,7 +2169,7 @@ void DefineINDEX() {
     Word("1+");
     Word("SWAP");
     Word("(DO)");
-Label("L3647");
+    Label("L3647");
     Word("CR");
     Word("I");
     Word("3");
@@ -3086,7 +2181,7 @@ Label("L3647");
     Word("?TERMINAL");
     ZBranch("L3659");
     Word("LEAVE");
-Label("L3659");
+    Label("L3659");
     Loop("L3647");
     Word("LIT");
     Comma(0x0c);    // FORM FEED FOR PRINTER
@@ -3105,7 +2200,7 @@ void DefineTRIAD() {
     Word("+");
     Word("SWAP");
     Word("(DO)");
-Label("L3681");
+    Label("L3681");
     Word("CR");
     Word("I");
     Word("LIST");
@@ -3130,7 +2225,7 @@ void DefineVLIST() {
     Word("CONTEXT");
     Word("@");
     Word("@");
-Label("L3706");
+    Label("L3706");
     Word("OUT");
     Word("@");
     Word("C/L");
@@ -3140,7 +2235,7 @@ Label("L3706");
     Word("0");
     Word("OUT");
     Word("!");
-Label("L3716");
+    Label("L3716");
     Word("DUP");
     Word("ID.");
     Word("SPACE");
@@ -3157,29 +2252,18 @@ Label("L3716");
     Word(";S");
 }
 
-cell_t MON() {
-    std::cout << std::endl << "Exiting with stack:";
-    for (cell_t i = 0; i <= sp && sp != cellMax; i++) {
-        std::cout << " "<< addrFormat(stack[i]);
-    }
-    std::cout << std::endl;
-
-    std::exit(0);
-}
-
 void DumpDictionary() {
-    std::cout << std::hex << std::setfill('0')
-              << std::endl << "Memory dump:";
+    logFile << std::hex << std::setfill('0') << std::endl << "Memory dump:";
 
     cell_t byteHere = CellIndexToByteIndex(here);
     for (cell_t byte = 0; byte < byteHere; byte++) {
         if (byte % 16 == 0) {
-            std::cout << std::endl << addrFormat(byte);
+            logFile << std::endl << addrFormat(byte);
         }
-        std::cout << " " << std::setw(2) << (uint16_t)memory.byte[byte];
+        logFile << " " << std::setw(2) << (uint16_t)memory.byte[byte];
     }
 
-    std::cout << std::dec << std::setfill(' ') << std::endl;
+    logFile << std::dec << std::setfill(' ') << std::endl;
 }
 
 void DumpForwardReferences() {
@@ -3188,310 +2272,11 @@ void DumpForwardReferences() {
     }
 }
 
-const char *TokenName(Token token) {
-    switch (token) {
-        case Token::LIT:
-            return "LIT";
-        case Token::EXEC:
-            return "EXECUTE";
-        case Token::BRAN:
-            return "BRAN";
-        case Token::ZBRAN:
-            return "ZBRAN";
-        case Token::PLOOP:
-            return "PLOOP";
-        case Token::PPLOO:
-            return "PPLOO";
-        case Token::PDO:
-            return "PDO";
-        case Token::DIGI:
-            return "DIGI";
-        case Token::PFIND:
-            return "PFIND";
-        case Token::ENCL:
-            return "ENCL";
-        case Token::EMIT:
-            return "EMIT";
-        case Token::KEY:
-            return "KEY";
-        case Token::QTERM:
-            return "QTERM";
-        case Token::MILLIS:
-            return "MILLIS";
-        case Token::CR:
-            return "CR";
-        case Token::CMOVE:
-            return "CMOVE";
-        case Token::USTAR:
-            return "USTAR";
-        case Token::USLAS:
-            return "USLAS";
-        case Token::AND:
-            return "AND";
-        case Token::OR:
-            return "OR";
-        case Token::XOR:
-            return "XOR";
-        case Token::SPAT:
-            return "SPAT";
-        case Token::SPSTO:
-            return "SPSTO";
-        case Token::RPSTO:
-            return "RPSTO";
-        case Token::SEMIS:
-            return "SEMIS";
-        case Token::LEAVE:
-            return "LEAVE";
-        case Token::TOR:
-            return "TOR";
-        case Token::RFROM:
-            return "RFROM";
-        case Token::R:
-            return "R";
-        case Token::IPRIME:
-            return "I'";
-        case Token::J:
-            return "J";
-        case Token::ZEQU:
-            return "ZEQU";
-        case Token::ZLESS:
-            return "ZLESS";
-        case Token::PLUS:
-            return "PLUS";
-        case Token::DPLUS:
-            return "DPLUS";
-        case Token::DLESS:
-            return "DLESS";
-        case Token::MINUS:
-            return "MINUS";
-        case Token::DMINUS:
-            return "DMINUS";
-        case Token::OVER:
-            return "OVER";
-        case Token::DROP:
-            return "DROP";
-        case Token::SWAP:
-            return "SWAP";
-        case Token::DUP:
-            return "DUP";
-        case Token::PICK:
-            return "PICK";
-        case Token::PSTOR:
-            return "PSTOR";
-        case Token::TOGGLE:
-            return "TOGGLE";
-        case Token::AT:
-            return "AT";
-        case Token::CAT:
-            return "CAT";
-        case Token::STORE:
-            return "STORE";
-        case Token::CSTORE:
-            return "CSTORE";
-        case Token::DOCOL:
-            return "DOCOL";
-        case Token::DOCON:
-            return "DOCON";
-        case Token::DOUSE:
-            return "DOUSE";
-        case Token::DOVAR:
-            return "DOVAR";
-        case Token::ULESS:
-            return "ULESS";
-        case Token::LESS:
-            return "LESS";
-        case Token::DODOE:
-            return "DODOE";
-        case Token::DREAD:
-            return "DREAD";
-        case Token::DWRITE:
-            return "DWRITE";
-        case Token::MON:
-            return "MON";
-    }
-    return "Unknown";
-};
-
-inline cell_t executeToken(Token token) {
-    switch(token) {
-        case Token::LIT:
-            return LIT();
-        case Token::EXEC:
-            return EXEC();
-        case Token::BRAN:
-            return BRAN();
-        case Token::ZBRAN:
-            return ZBRAN();
-        case Token::PLOOP:
-            return PLOOP();
-        case Token::PPLOO:
-            return PPLOO();
-        case Token::PDO:
-            return PDO();
-        case Token::DIGI:
-            return DIGI();
-        case Token::PFIND:
-            return PFIND();
-        case Token::ENCL:
-            return ENCL();
-        case Token::EMIT:
-            return EMIT();
-        case Token::KEY:
-            return KEY();
-        case Token::QTERM:
-            return QTERM();
-        case Token::MILLIS:
-            return MILLIS();
-        case Token::CR:
-            return CR();
-        case Token::CMOVE:
-            return CMOVE();
-        case Token::USTAR:
-            return USTAR();
-        case Token::USLAS:
-            return USLAS();
-        case Token::AND:
-            return AND();
-        case Token::OR:
-            return OR();
-        case Token::XOR:
-            return XOR();
-        case Token::SPAT:
-            return SPAT();
-        case Token::SPSTO:
-            return SPSTO();
-        case Token::RPSTO:
-            return RPSTO();
-        case Token::SEMIS:
-            return SEMIS();
-        case Token::LEAVE:
-            return LEAVE();
-        case Token::TOR:
-            return TOR();
-        case Token::RFROM:
-            return RFROM();
-        case Token::R:
-            return R();
-        case Token::IPRIME:
-            return IPrime();
-        case Token::J:
-            return J();
-        case Token::ZEQU:
-            return ZEQU();
-        case Token::ZLESS:
-            return ZLESS();
-        case Token::PLUS:
-            return PLUS();
-        case Token::DPLUS:
-            return DPLUS();
-        case Token::DLESS:
-            return DLESS();
-        case Token::MINUS:
-            return MINUS();
-        case Token::DMINUS:
-            return DMINUS();
-        case Token::OVER:
-            return OVER();
-        case Token::DROP:
-            return DROP();
-        case Token::SWAP:
-            return SWAP();
-        case Token::DUP:
-            return DUP();
-        case Token::PICK:
-            return PICK();
-        case Token::PSTOR:
-            return PSTOR();
-        case Token::TOGGLE:
-            return TOGGLE();
-        case Token::AT:
-            return AT();
-        case Token::CAT:
-            return CAT();
-        case Token::STORE:
-            return STORE();
-        case Token::CSTORE:
-            return CSTORE();
-        case Token::DOCOL:
-            return DOCOL();
-        case Token::DOCON:
-            return DOCON();
-        case Token::DOUSE:
-            return DOUSE();
-        case Token::DOVAR:
-            return DOVAR();
-        case Token::ULESS:
-            return ULESS();
-        case Token::LESS:
-            return LESS();
-        case Token::DODOE:
-            return DODOE();
-        case Token::DREAD:
-            return DREAD();
-        case Token::DWRITE:
-            return DWRITE();
-        case Token::MON:
-            return MON();
-        default:
-            std::cerr << "Unimplemented token! (" << static_cast<cell_t>(token)
-                      << ") ip=" << addrFormat(ip) << " w=" << addrFormat(w)
-                      << std::endl;
-
-            std::exit(1);
-    }
-}
-
-cell_t ExecuteTokenNonInline(Token token) {
-    return executeToken(token);
-}
-
-void InitUserMemory() {
-    cell_t variablesToInit = memory.cell[ByteIndexToCellIndex(ORIG) + 2];
-    for (cell_t i = 0; i < variablesToInit; i++) {
-        memory.cell[ByteIndexToCellIndex(UAREA) + i] =
-            memory.cell[ByteIndexToCellIndex(ORIG) + 3 + i];
-    }
-}
-
-void InitVirtualMachine() {
-    sp = cellMax;
-    rp = cellMax;
-
-    cell_t cold = ByteIndexToCellIndex(memory.cell[ByteIndexToCellIndex(ORIG)]) + 1;
-    ip = cold;
-}
-
-void RunVirtualMachine() {
-    while(1) {
-        w = memory.cell[ip];
-        Token token = static_cast<Token>(memory.byte[w]);
-
-        if (traceVirtualMachine) {
-            std::cout << "ip = " << addrFormat(CellIndexToByteIndex(ip))
-                      << " w = " << addrFormat(w) << " "
-                      << TokenName(token) << " (" << static_cast<cell_t>(token) << ")"
-                      << " sp = " << sp << " rp = " << rp << std::endl;
-        }
-
-        ip++;
-        cell_t error = executeToken(token);
-        if (error != 0) {
-            rp = cellMax;
-            sp = 0;
-            stack[sp] = error;
-            if (traceVirtualMachine) {
-                std::cout << TokenName(token) << " returned " << error << std::endl;
-            }
-            ip = ByteIndexToCellIndex(memory.cell[ByteIndexToCellIndex(ORIG) + 1]) + 1;
-        }
-    }
-}
-
 void BuildDictionary() {
     here = ByteIndexToCellIndex(ORIG);
 
     if (debugStartup) {
-        std::cout << "Building dictionary" << std::endl;
+        logFile << "Building dictionary" << std::endl;
     }
 
     // Cold start word
@@ -3507,7 +2292,7 @@ void BuildDictionary() {
     Comma(0);            // FENCE
     Comma(0);            // DP
     Comma(0);            // VOCL
-    Comma(XDeleteKey()); // DELETE-KEY
+    Comma(XDeleteKey);   // DELETE-KEY
 
     Primitive("LIT", Token::LIT);
     Primitive("CLIT", Token::LIT);   // Since we cell align words, there no point in CLIT differing from LIT
@@ -3753,7 +2538,7 @@ void BuildDictionary() {
     Primitive("MON", Token::MON);
 
     if (debugWordCreation) {
-        std::cout << addrFormat(CellIndexToByteIndex(here)) << std::endl;
+        logFile << addrFormat(CellIndexToByteIndex(here)) << std::endl;
     }
 
     // At this point there shouldn't be any remaining unresolved forward references. If there are,
@@ -3761,6 +2546,7 @@ void BuildDictionary() {
     if (!forwardReferences.empty()) {
         std::cerr << "Unresolved forward references exit after dictionary build:" << std::endl;
         DumpForwardReferences();
+        logFile.close();
         std::exit(1);
     }
 
@@ -3772,4 +2558,77 @@ void BuildDictionary() {
     if (dumpDictionary) {
         DumpDictionary();
     }
+}
+
+void WriteHFile() {
+    std::ofstream hFile;
+    hFile.open("Dictionary.h");
+
+    hFile << "// This file is generated by mkDictionary and should not need"
+             " to be altered directly." << std::endl;
+    hFile << std::endl;
+
+    hFile << "#ifndef DICTIONARY_H" << std::endl;
+    hFile << "#define DICTIONARY_H" << std::endl;
+    hFile << std::endl;
+    hFile << "#include \"lnFORTH.h\"" << std::endl;
+    hFile << std::endl;
+    hFile << "#include \"stddef.h\"" << std::endl;
+    hFile << std::endl;
+    hFile << "static constexpr size_t initialDictionarySize = " << here
+          << ";" << std::endl;
+    hFile << "extern const cell_t initialDictionary[initialDictionarySize];"
+          << std::endl;
+    hFile << std::endl;
+    hFile << "#endif /* DICTIONARY_H */" << std::endl;
+
+    hFile.close();
+}
+
+void WriteCPPFile() {
+    std::ofstream cppFile;
+    cppFile.open("Dictionary.cpp");
+
+    cppFile << "// This file is generated by mkDictionary and should not need"
+               " to be altered directly." << std::endl;
+    cppFile << std::endl;
+    cppFile << "#include \"Dictionary.h\"" << std::endl;
+    cppFile << "#include \"lnFORTH.h\"" << std::endl;
+    cppFile << std::endl;
+
+    cppFile << "const cell_t initialDictionary[initialDictionarySize] {"
+            << std::endl;
+
+    for (size_t word = 0; word < here; word++) {
+        if (word % 8 == 0) {
+            cppFile << std::endl;
+            cppFile << "    ";
+        } else {
+            cppFile << " ";
+        }
+        cppFile << "0x" << std::hex << std::setw(bytesPerCell) << std::setfill('0')
+                << memory.cell[word];
+        if (word + 1 != here) {
+            cppFile << ",";
+        }
+    }
+    cppFile << std::endl;
+
+    cppFile << "};" << std::endl;
+
+    cppFile.close();
+}
+
+void WriteDictionary() {
+    WriteHFile();
+    WriteCPPFile();
+}
+
+int main(int argc, char* argv[]) {
+    logFile.open("Dictionary.log");
+
+    BuildDictionary();
+    WriteDictionary();
+
+    logFile.close();
 }

@@ -22,9 +22,11 @@
 #include <stddef.h>
 #include <stdint.h>
 
+// This probably will need to be moved to a platform specific include file...
+static constexpr char XDeleteKey = 0x7f;
+
 extern void XInit();
 extern char XKey();
-extern char XDeleteKey();
 extern void XEmit(char character);
 extern uint32_t XMillis();
 extern bool XRead(uint8_t *addr, uint32_t blkDiskOffset, size_t length);

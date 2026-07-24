@@ -16,23 +16,17 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "../Platform.h"
-#include "../lnFORTH.h"
-#include "../VirtualMachine.h"
-#include "../Dictionary.h"
+#ifndef VIRTUAL_MACHINE_H
+#define VIRTUAL_MACHINE_H
 
-#include <iostream>
+#include "lnFORTH.h"
 
-int main(int ac, char* av[]) {
-    XInit();
+#include <stddef.h>
 
-    InitDictionary(initialDictionarySize, initialDictionary);
-    InitUserMemory();
-    InitVirtualMachine();
+extern void InitDictionary(size_t initialDictionarySize,
+                           const cell_t *initialDictionary);
+extern void InitVirtualMachine();
+extern void InitUserMemory();
+extern void RunVirtualMachine();
 
-    if (debugStartup) {
-        std::cout << "Starting Virtual Machine" << std::endl;
-    }
-
-    RunVirtualMachine();
-}
+#endif /* VIRTUAL_MACHINE_H */

@@ -59,10 +59,6 @@ char XKey() {
     return key;
 }
 
-char XDeleteKey() {
-    return 0x7f;
-}
-
 void XEmit(char character) {
     (void)write(STDIN_FILENO, &character, 1);
 }
