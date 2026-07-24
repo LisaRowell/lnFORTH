@@ -380,7 +380,7 @@ cell_t USTAR() {
 
     cell_t u1 = stack[sp];
     cell_t u2 = stack[sp - 1];
-    double_t prod = u1 * u2;
+    dcell_t prod = u1 * u2;
     stack[sp - 1] = (cell_t)(prod & cellMax);
     stack[sp] = (cell_t)(prod >> bitsPerCell);
 
@@ -390,7 +390,7 @@ cell_t USTAR() {
 cell_t USLAS() {
     CHECK_STACK(3, 0);
 
-    double_t ud = (double_t)stack[sp - 2] | (((double_t)stack[sp - 1]) << bitsPerCell);
+    dcell_t ud = (dcell_t)stack[sp - 2] | (((dcell_t)stack[sp - 1]) << bitsPerCell);
     cell_t u1 = stack[sp--];
     cell_t u2 = (cell_t)(ud % u1);
     cell_t u3 = (cell_t)(ud / u1);
@@ -546,10 +546,10 @@ cell_t PLUS() {
 cell_t DPLUS() {
     CHECK_STACK(4, 0);
 
-    double_t d1 = (double_t)stack[sp - 3] | (((double_t)stack[sp - 2]) << bitsPerCell);
-    double_t d2 = (double_t)stack[sp - 1] | (((double_t)stack[sp]) << bitsPerCell);
+    dcell_t d1 = (dcell_t)stack[sp - 3] | (((dcell_t)stack[sp - 2]) << bitsPerCell);
+    dcell_t d2 = (dcell_t)stack[sp - 1] | (((dcell_t)stack[sp]) << bitsPerCell);
     sp -= 2;
-    double_t dsum = d1 + d2;
+    dcell_t dsum = d1 + d2;
     stack[sp - 1] = (cell_t)(dsum & cellMax);
     stack[sp] = (cell_t)(dsum >> bitsPerCell);
 
@@ -559,8 +559,8 @@ cell_t DPLUS() {
 cell_t DLESS() {
     CHECK_STACK(4, 0);
 
-    sdouble_t d1 = (sdouble_t)stack[sp - 3] | (((sdouble_t)stack[sp - 2]) << bitsPerCell);
-    sdouble_t d2 = (sdouble_t)stack[sp - 1] | (((sdouble_t)stack[sp]) << bitsPerCell);
+    sdcell_t d1 = (sdcell_t)stack[sp - 3] | (((sdcell_t)stack[sp - 2]) << bitsPerCell);
+    sdcell_t d2 = (sdcell_t)stack[sp - 1] | (((sdcell_t)stack[sp]) << bitsPerCell);
     sp -= 3;
 
     cell_t result = d1 < d2 ? trueValue : falseValue;
@@ -581,8 +581,8 @@ cell_t MINUS() {
 cell_t DMINUS() {
     CHECK_STACK(2, 0);
 
-    double_t d1 = (double_t)stack[sp - 1] | (((double_t)stack[sp]) << bitsPerCell);
-    double_t d2 = (~d1) + 1;
+    dcell_t d1 = (dcell_t)stack[sp - 1] | (((dcell_t)stack[sp]) << bitsPerCell);
+    dcell_t d2 = (~d1) + 1;
     stack[sp - 1] = (cell_t)(d2 & cellMax);
     stack[sp] = (cell_t)(d2 >> bitsPerCell);
 

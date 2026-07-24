@@ -27,8 +27,8 @@
 #ifdef CELL_SIZE_16_BITS
 typedef uint16_t cell_t;
 typedef int16_t scell_t;
-typedef uint32_t double_t;
-typedef int32_t sdouble_t;
+typedef uint32_t dcell_t;
+typedef int32_t sdcell_t;
 const cell_t cellMax = 0xffff;
 const cell_t scellMax = 0x7fff;
 const cell_t cellPaddingMask = 0x0001;
