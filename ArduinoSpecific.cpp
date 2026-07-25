@@ -88,8 +88,24 @@ bool XRead(uint8_t *addr, uint32_t blkDiskOffset, size_t length) {
 }
 
 bool XWrite(uint8_t *addr, uint32_t blkDiskOffset, size_t length) {
-    // Currently not implemented
+    if (sdCardPresent) {
+        File dataFile = SD.open("disk", FILE_WRITE);
+        if (dataFile) {
+            if (!dataFile.seek(blkDiskOffset)) {
+                return false;
+            }
 
-    return false;
+            if (dataFile.write(addr, length) != length) {
+                return false;
+            }
+
+            dataFile.close();
+            return true;
+        } else {
+            return false;
+        }
+    } else {
+        return false;
+    }
 }
 
