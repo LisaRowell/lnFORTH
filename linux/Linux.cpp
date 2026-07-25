@@ -63,6 +63,10 @@ void XEmit(char character) {
     (void)write(STDIN_FILENO, &character, 1);
 }
 
+void XCR() {
+    XEmit(10);
+}
+
 uint32_t XMillis() {
     struct timeval time;
 

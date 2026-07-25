@@ -28,6 +28,7 @@ static constexpr char XDeleteKey = 0x7f;
 extern void XInit();
 extern char XKey();
 extern void XEmit(char character);
+extern void XCR();
 extern uint32_t XMillis();
 extern bool XRead(uint8_t *addr, uint32_t blkDiskOffset, size_t length);
 extern bool XWrite(uint8_t *addr, uint32_t blkDiskOffset, size_t length);

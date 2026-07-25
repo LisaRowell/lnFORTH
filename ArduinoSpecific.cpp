@@ -55,6 +55,11 @@ void XEmit(char character) {
     Serial.print(character);
 }
 
+void XCR() {
+    Serial.print((char)13);
+    Serial.print((char)10);
+}
+
 uint32_t XMillis() {
     return millis();
 }

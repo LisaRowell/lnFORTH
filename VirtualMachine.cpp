@@ -383,8 +383,7 @@ TokenResult MILLIS() {
 }
 
 TokenResult CR() {
-    XEmit(10);
-//    std::cout << (char)10;
+    XCR();
 
     return TokenResult::OK;
 }
