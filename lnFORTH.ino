@@ -20,10 +20,8 @@
 #include "VirtualMachine.h"
 #include "Dictionary.h"
 
-#include <Arduino.h>
-
 void setup() {
-    Serial.begin(9600);
+    XInit();
 
     InitDictionary(initialDictionarySize, initialDictionary);
     InitUserMemory();

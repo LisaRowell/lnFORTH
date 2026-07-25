@@ -19,6 +19,29 @@
 #include "Platform.h"
 
 #include <Arduino.h>
+#include <SD.h>
+#include <SPI.h>
+
+#ifdef ARDUINO_TEENSY41
+#define HAS_SD
+constexpr int chipSelect = BUILTIN_SDCARD;
+#endif
+
+static bool sdCardPresent;
+
+void XInit() {
+    // The 9600 is ignored, but the call is required
+    Serial.begin(9600);
+
+#ifdef HAS_SD
+    if (SD.begin(chipSelect)) {
+        sdCardPresent = true;
+    } else {
+        Serial.println("Card failed, or not present");
+        sdCardPresent = false;
+    }
+#endif
+}
 
 char XKey() {
     if (Serial.available()) {
@@ -37,9 +60,25 @@ uint32_t XMillis() {
 }
 
 bool XRead(uint8_t *addr, uint32_t blkDiskOffset, size_t length) {
-    // Currently not implemented
+    if (sdCardPresent) {
+        File dataFile = SD.open("disk", FILE_READ);
+        if (dataFile) {
+            if (!dataFile.seek(blkDiskOffset)) {
+                return false;
+            }
 
-    return false;
+            if (dataFile.read(addr, length) != length) {
+                return false;
+            }
+
+            dataFile.close();
+            return true;
+        } else {
+            return false;
+        }
+    } else {
+        return false;
+    }
 }
 
 bool XWrite(uint8_t *addr, uint32_t blkDiskOffset, size_t length) {
