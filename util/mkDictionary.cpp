@@ -2161,6 +2161,8 @@ void DefineLIST() {
     Word(";S");
 }
 
+// Modified from the source listing to have a CR at the end and to
+// not clear the screen immediately after on VT100 devices.
 void DefineINDEX() {
     Colon("INDEX");
     Word("CR");
@@ -2168,7 +2170,6 @@ void DefineINDEX() {
     Word("SWAP");
     Word("(DO)");
     Label("L3647");
-    Word("CR");
     Word("I");
     Word("3");
     Word(".R");
@@ -2176,14 +2177,12 @@ void DefineINDEX() {
     Word("0");
     Word("I");
     Word(".LINE");
+    Word("CR");
     Word("?TERMINAL");
     ZBranch("L3659");
     Word("LEAVE");
     Label("L3659");
     Loop("L3647");
-    Word("LIT");
-    Comma(0x0c);    // FORM FEED FOR PRINTER
-    Word("EMIT");
     Word(";S");
 }
 
