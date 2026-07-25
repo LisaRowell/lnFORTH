@@ -28,12 +28,12 @@
 
 enum class TokenResult : uint16_t {
     OK = 0,
-    STALL,
-    STACK_UNDERRUN,
-    STACK_OVERRUN,
-    RSTACK_UNDERRUN,
-    RSTACK_OVERRUN,
-    ILLEGAL_ACCESS
+    // These should match the errors in screen 4
+    STACK_UNDERRUN = 1,
+    STACK_OVERRUN = 7,
+    RSTACK_UNDERRUN = 11,
+    RSTACK_OVERRUN = 12,
+    ILLEGAL_ACCESS = 5
 };
 
 cell_t stack[dataStackSize];
@@ -346,20 +346,11 @@ TokenResult EMIT() {
     return TokenResult::OK;
 }
 
-// Because of the structure of Arduino "sketches", and the cooperative multitasking that takes
-// place under the hood when loop returns, KEY can be an issue since it can sit without returning.
-// We solve this problem with a return code that tells the virtual machine to stall instead of
-// advancing to the next word.
 TokenResult KEY() {
     CHECK_STACK(0, 1);
 
     char key = XKey();
-    if (key != 0) {
-        stack[++sp] = (cell_t)key;
-    } else {
-        // See above explanation
-        return TokenResult::STALL;
-    }
+    stack[++sp] = (cell_t)key;
 
     return TokenResult::OK;
 }
@@ -1099,6 +1090,11 @@ void InitUserMemory() {
         memory.cell[ByteIndexToCellIndex(UAREA) + i] =
             memory.cell[ByteIndexToCellIndex(ORIG) + 3 + i];
     }
+
+    // The dictionary is built platform independent, but there are some
+    // user variables that we want to set platform specific.
+    memory.cell[ByteIndexToCellIndex(UAREA) + enterKeyUserIndex] = XEnterKey;
+    memory.cell[ByteIndexToCellIndex(UAREA) + deleteKeyUserIndex] = XDeleteKey;
 }
 
 void InitVirtualMachine() {
@@ -1148,10 +1144,7 @@ void StepVirtualMachine() {
 
     ip++;
     TokenResult result = executeToken(token);
-    if (result == TokenResult::STALL) {
-        // See the KEY token for an explanation of this.
-        ip--;
-    } else if (result != TokenResult::OK) {
+    if (result != TokenResult::OK) {
         rp = cellMax;
         sp = 0;
         stack[sp] = (cell_t)result;

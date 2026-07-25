@@ -802,8 +802,8 @@ void DefineEXPEC() {
     Branch("L1779");
     Label("L1760");
     Word("DUP");
-    Word("LIT");
-    Comma(0x0a);
+    Word("ENTER-KEY");
+    Word("@");
     Word("=");
     ZBranch("L1772");
     Word("LEAVE");
@@ -2279,13 +2279,14 @@ void BuildDictionary() {
     Word("ERROR");
 
     // Number of user area entries to initialize
-    Comma(7);
+    Comma(8);
     Comma(TIBX);         // TIB
     Comma(31);           // WIDTH
     Comma(0);            // WARNING (0=no disk 1=disk)
     Comma(0);            // FENCE
     Comma(0);            // DP
     Comma(0);            // VOCL
+    Comma(XEnterKey);    // ENTER-KEY
     Comma(XDeleteKey);   // DELETE-KEY
 
     Primitive("LIT", Token::LIT);
@@ -2371,6 +2372,7 @@ void BuildDictionary() {
     User("FENCE", fenceUserIndex);
     User("DP", dpUserIndex);
     User("VOC-LINK", voclUserIndex);
+    User("ENTER-KEY", enterKeyUserIndex);
     User("DELETE-KEY", deleteKeyUserIndex);
     User("BLK", blkUserIndex);
     User("IN", inUserIndex);

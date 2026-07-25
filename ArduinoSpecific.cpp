@@ -1,3 +1,5 @@
+#include "core_pins.h"
+#include "usb_serial.h"
 /*
  * lnFORTH - A portable token threaded figFORTH implementation.
  * Copyright (C) 2026 Lisa Rowell
@@ -44,11 +46,10 @@ void XInit() {
 }
 
 char XKey() {
-    if (Serial.available()) {
-        return Serial.read();
-    } else {
-        return 0;
+    while (!Serial.available()) {
+        yield();
     }
+    return Serial.read();
 }
 
 void XEmit(char character) {
