@@ -1108,7 +1108,7 @@ void InitVirtualMachine() {
 void RunVirtualMachine() {
     while(1) {
         w = memory.cell[ip];
-        Token token = static_cast<Token>(memory.byte[w]);
+        Token token = static_cast<Token>(memory.cell[ByteIndexToCellIndex(w)]);
 
         if (traceVirtualMachine) {
             std::cout << "ip = " << addrFormat(CellIndexToByteIndex(ip))
@@ -1133,7 +1133,7 @@ void RunVirtualMachine() {
 
 void StepVirtualMachine() {
     w = memory.cell[ip];
-    Token token = static_cast<Token>(memory.byte[w]);
+    Token token = static_cast<Token>(memory.cell[ByteIndexToCellIndex(w)]);
 
     if (traceVirtualMachine) {
         std::cout << "ip = " << addrFormat(CellIndexToByteIndex(ip))
