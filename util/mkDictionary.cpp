@@ -39,6 +39,7 @@ union Mem {
 
 cell_t here;
 cell_t forthLastWordReference;
+cell_t coldLastWordReference;
 
 // For building the initial dictionary only, we use a standard libary map to find words. It's not used
 // after Forth is up and running, then the normal thread of words is used.
@@ -2249,6 +2250,41 @@ void DefineVLIST() {
     Word(";S");
 }
 
+void DefineCOLD() {
+    Colon("COLD");
+    Word("SP!");
+    Word("RP!");
+    Word("LIT");
+    coldLastWordReference = here;
+    Comma(0);       // Filled in later
+    Word("LIT");
+    Comma(CellIndexToByteIndex(forthLastWordReference));
+    Word("!");
+    Word("LIT");
+    Comma(ORIG + bytesPerCell * 2);
+    Word("@");
+    Word("0");
+    Word("(DO)");
+    Label("COLD1");
+    Word("LIT");
+    Comma(ORIG + bytesPerCell * 3);
+    Word("I");
+    Word("2");
+    Word("*");
+    Word("+");
+    Word("@");
+    Word("I");
+    Word("2");
+    Word("*");
+    Word("LIT");
+    Comma(UAREA);
+    Word("+");
+    Word("!");
+    Loop("COLD1");
+    Word("ABORT");
+    Word(";S");
+}
+
 void LogDictionary() {
     logFile << std::hex << std::setfill('0') << std::endl << "Memory dump:";
 
@@ -2273,7 +2309,7 @@ void BuildDictionary() {
     here = ByteIndexToCellIndex(ORIG);
 
     // Cold start word
-    Word("ABORT");
+    Word("COLD");
     // Error handling word
     Word("ERROR");
 
@@ -2285,8 +2321,8 @@ void BuildDictionary() {
     Comma(0);            // FENCE
     Comma(0);            // DP
     Comma(0);            // VOCL
-    Comma(XEnterKey);    // ENTER-KEY
-    Comma(XDeleteKey);   // DELETE-KEY
+    Comma(0);            // ENTER-KEY filled in by virtual machine for platform
+    Comma(0);            // DELETE-KEY filled in by virtual machine for platform
 
     Primitive("LIT", Token::LIT);
     Primitive("CLIT", Token::LIT);   // Since we cell align words, there no point in CLIT differing from LIT
@@ -2526,10 +2562,13 @@ void BuildDictionary() {
     DefineINDEX();
     DefineTRIAD();
     DefineVLIST();
+    DefineCOLD();
 
     // The last word defined needs to be pointed to by the VOCABULARY word FORTH. Before we define it,
     // resolve the reference.
     memory.cell[forthLastWordReference] = CellIndexToByteIndex(here);
+    // This is also set by COLD.
+    memory.cell[coldLastWordReference] = CellIndexToByteIndex(here);
     Primitive("MON", Token::MON);
 
     logFile << addrFormat(CellIndexToByteIndex(here)) << std::endl;

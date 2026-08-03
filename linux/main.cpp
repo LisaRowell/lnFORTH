@@ -27,7 +27,6 @@ int main(int ac, char* av[]) {
     XInit();
 
     InitDictionary(initialDictionarySize, initialDictionary);
-    InitUserMemory();
     InitVirtualMachine();
 
     if (debugStartup) {

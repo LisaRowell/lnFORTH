@@ -109,3 +109,10 @@ bool XWrite(uint8_t *addr, uint32_t blkDiskOffset, size_t length) {
     }
 }
 
+char XEnterKey() {
+    return 0x0d;
+}
+
+char XDeleteKey() {
+    return 0x7f;
+}

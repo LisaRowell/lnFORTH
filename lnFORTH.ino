@@ -24,7 +24,6 @@ void setup() {
     XInit();
 
     InitDictionary(initialDictionarySize, initialDictionary);
-    InitUserMemory();
     InitVirtualMachine();
 }
 

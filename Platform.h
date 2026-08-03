@@ -22,15 +22,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-// These probably will need to be moved to a platform specific include file...
-#ifdef ARDUINO
-static constexpr char XEnterKey  = 0x0d;
-static constexpr char XDeleteKey = 0x7f;
-#else
-static constexpr char XEnterKey  = 0x0a;
-static constexpr char XDeleteKey = 0x7f;
-#endif
-
 extern void XInit();
 extern char XKey();
 extern void XEmit(char character);
@@ -38,5 +29,7 @@ extern void XCR();
 extern uint32_t XMillis();
 extern bool XRead(uint8_t *addr, uint32_t blkDiskOffset, size_t length);
 extern bool XWrite(uint8_t *addr, uint32_t blkDiskOffset, size_t length);
+extern char XEnterKey();
+extern char XDeleteKey();
 
 #endif // PLATFORM_H

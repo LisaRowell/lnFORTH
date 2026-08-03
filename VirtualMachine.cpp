@@ -1082,25 +1082,14 @@ void InitDictionary(size_t initialDictionarySize,
     for (size_t word = 0; word < initialDictionarySize; word++) {
         memory.cell[word] = initialDictionary[word];
     }
-}
-
-void InitUserMemory() {
-    cell_t variablesToInit = memory.cell[ByteIndexToCellIndex(ORIG) + 2];
-    for (cell_t i = 0; i < variablesToInit; i++) {
-        memory.cell[ByteIndexToCellIndex(UAREA) + i] =
-            memory.cell[ByteIndexToCellIndex(ORIG) + 3 + i];
-    }
 
     // The dictionary is built platform independent, but there are some
     // user variables that we want to set platform specific.
-    memory.cell[ByteIndexToCellIndex(UAREA) + enterKeyUserIndex] = XEnterKey;
-    memory.cell[ByteIndexToCellIndex(UAREA) + deleteKeyUserIndex] = XDeleteKey;
+    memory.cell[ByteIndexToCellIndex(ORIG) + 3 + enterKeyUserIndex] = XEnterKey();
+    memory.cell[ByteIndexToCellIndex(ORIG) + 3 + deleteKeyUserIndex] = XDeleteKey();
 }
 
 void InitVirtualMachine() {
-    sp = cellMax;
-    rp = cellMax;
-
     cell_t cold = ByteIndexToCellIndex(memory.cell[ByteIndexToCellIndex(ORIG)]) + 1;
     ip = cold;
 }
