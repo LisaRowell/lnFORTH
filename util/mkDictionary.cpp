@@ -2263,24 +2263,23 @@ void DefineCOLD() {
     Word("LIT");
     Comma(ORIG + bytesPerCell * 2);
     Word("@");
+    Word("B/CELL");
+    Word("*");
     Word("0");
     Word("(DO)");
     Label("COLD1");
     Word("LIT");
     Comma(ORIG + bytesPerCell * 3);
     Word("I");
-    Word("2");
-    Word("*");
     Word("+");
     Word("@");
     Word("I");
-    Word("2");
-    Word("*");
     Word("LIT");
     Comma(UAREA);
     Word("+");
     Word("!");
-    Loop("COLD1");
+    Word("B/CELL");
+    PlusLoop("COLD1");
     Word("ABORT");
     Word(";S");
 }
