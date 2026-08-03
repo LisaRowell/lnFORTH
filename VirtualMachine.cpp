@@ -820,130 +820,6 @@ TokenResult MON() {
     std::exit(0);
 }
 
-const char *TokenName(Token token) {
-    switch (token) {
-    case Token::LIT:
-        return "LIT";
-    case Token::EXEC:
-        return "EXECUTE";
-    case Token::BRAN:
-        return "BRAN";
-    case Token::ZBRAN:
-        return "ZBRAN";
-    case Token::PLOOP:
-        return "PLOOP";
-    case Token::PPLOO:
-        return "PPLOO";
-    case Token::PDO:
-        return "PDO";
-    case Token::DIGI:
-        return "DIGI";
-    case Token::PFIND:
-        return "PFIND";
-    case Token::ENCL:
-        return "ENCL";
-    case Token::EMIT:
-        return "EMIT";
-    case Token::KEY:
-        return "KEY";
-    case Token::QTERM:
-        return "QTERM";
-    case Token::MILLIS:
-        return "MILLIS";
-    case Token::CR:
-        return "CR";
-    case Token::CMOVE:
-        return "CMOVE";
-    case Token::USTAR:
-        return "USTAR";
-    case Token::USLAS:
-        return "USLAS";
-    case Token::AND:
-        return "AND";
-    case Token::OR:
-        return "OR";
-    case Token::XOR:
-        return "XOR";
-    case Token::SPAT:
-        return "SPAT";
-    case Token::SPSTO:
-        return "SPSTO";
-    case Token::RPSTO:
-        return "RPSTO";
-    case Token::SEMIS:
-        return "SEMIS";
-    case Token::LEAVE:
-        return "LEAVE";
-    case Token::TOR:
-        return "TOR";
-    case Token::RFROM:
-        return "RFROM";
-    case Token::R:
-        return "R";
-    case Token::IPRIME:
-        return "I'";
-    case Token::J:
-        return "J";
-    case Token::ZEQU:
-        return "ZEQU";
-    case Token::ZLESS:
-        return "ZLESS";
-    case Token::PLUS:
-        return "PLUS";
-    case Token::DPLUS:
-        return "DPLUS";
-    case Token::DLESS:
-        return "DLESS";
-    case Token::MINUS:
-        return "MINUS";
-    case Token::DMINUS:
-        return "DMINUS";
-    case Token::OVER:
-        return "OVER";
-    case Token::DROP:
-        return "DROP";
-    case Token::SWAP:
-        return "SWAP";
-    case Token::DUP:
-        return "DUP";
-    case Token::PICK:
-        return "PICK";
-    case Token::PSTOR:
-        return "PSTOR";
-    case Token::TOGGLE:
-        return "TOGGLE";
-    case Token::AT:
-        return "AT";
-    case Token::CAT:
-        return "CAT";
-    case Token::STORE:
-        return "STORE";
-    case Token::CSTORE:
-        return "CSTORE";
-    case Token::DOCOL:
-        return "DOCOL";
-    case Token::DOCON:
-        return "DOCON";
-    case Token::DOUSE:
-        return "DOUSE";
-    case Token::DOVAR:
-        return "DOVAR";
-    case Token::ULESS:
-        return "ULESS";
-    case Token::LESS:
-        return "LESS";
-    case Token::DODOE:
-        return "DODOE";
-    case Token::DREAD:
-        return "DREAD";
-    case Token::DWRITE:
-        return "DWRITE";
-    case Token::MON:
-        return "MON";
-    }
-    return "Unknown";
-};
-
 inline TokenResult executeToken(Token token) {
     switch(token) {
     case Token::LIT:
@@ -1090,42 +966,9 @@ void InitVirtualMachine() {
     ip = cold;
 }
 
-void RunVirtualMachine() {
-    while(1) {
-        w = memory.cell[ip];
-        Token token = static_cast<Token>(memory.cell[ByteIndexToCellIndex(w)]);
-
-        if (traceVirtualMachine) {
-            std::cout << "ip = " << addrFormat(CellIndexToByteIndex(ip))
-                      << " w = " << addrFormat(w) << " "
-                      << TokenName(token) << " (" << static_cast<cell_t>(token) << ")"
-                      << " sp = " << sp << " rp = " << rp << std::endl;
-        }
-
-        ip++;
-        TokenResult result = executeToken(token);
-        if (result != TokenResult::OK) {
-            rp = cellMax;
-            sp = 0;
-            stack[sp] = (cell_t)result;
-            if (traceVirtualMachine) {
-                std::cout << TokenName(token) << " returned " << (cell_t)result << std::endl;
-            }
-            ip = ByteIndexToCellIndex(memory.cell[ByteIndexToCellIndex(ORIG) + 1]) + 1;
-        }
-    }
-}
-
 void StepVirtualMachine() {
     w = memory.cell[ip];
     Token token = static_cast<Token>(memory.cell[ByteIndexToCellIndex(w)]);
-
-    if (traceVirtualMachine) {
-        std::cout << "ip = " << addrFormat(CellIndexToByteIndex(ip))
-                  << " w = " << addrFormat(w) << " "
-                  << TokenName(token) << " (" << static_cast<cell_t>(token) << ")"
-                  << " sp = " << sp << " rp = " << rp << std::endl;
-    }
 
     ip++;
     TokenResult result = executeToken(token);
@@ -1133,9 +976,12 @@ void StepVirtualMachine() {
         rp = cellMax;
         sp = 0;
         stack[sp] = (cell_t)result;
-        if (traceVirtualMachine) {
-            std::cout << TokenName(token) << " returned " << (cell_t)result << std::endl;
-        }
         ip = ByteIndexToCellIndex(memory.cell[ByteIndexToCellIndex(ORIG) + 1]) + 1;
+    }
+}
+
+void RunVirtualMachine() {
+    while(1) {
+        StepVirtualMachine();
     }
 }
