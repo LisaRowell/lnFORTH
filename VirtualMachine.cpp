@@ -33,7 +33,8 @@ enum class TokenResult : uint16_t {
     STACK_OVERRUN = 7,
     RSTACK_UNDERRUN = 11,
     RSTACK_OVERRUN = 12,
-    ILLEGAL_ACCESS = 5
+    ILLEGAL_ACCESS = 5,
+    UNIMPLEMENTED_TOKEN = 14
 };
 
 cell_t stack[dataStackSize];
@@ -1064,12 +1065,7 @@ inline TokenResult executeToken(Token token) {
     case Token::MON:
         return MON();
     default:
-        if (logTokenErrors) {
-            std::cerr << "Unimplemented token! (" << static_cast<cell_t>(token)
-                      << ") ip=" << addrFormat(ip) << " w=" << addrFormat(w)
-                      << std::endl;
-        }
-        std::exit(1);
+        return TokenResult::UNIMPLEMENTED_TOKEN;
     }
 }
 
