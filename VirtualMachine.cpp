@@ -41,8 +41,8 @@ cell_t stack[dataStackSize];
 cell_t rStack[returnStackSize];
 
 union Mem {
-    cell_t cell[memorySize];
-    uint8_t byte[memorySize * bytesPerCell];
+    cell_t cell[memorySize / bytesPerCell];
+    uint8_t byte[memorySize];
 } memory;
 
 cell_t sp;
