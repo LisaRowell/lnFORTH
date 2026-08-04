@@ -1093,27 +1093,19 @@ void DefineERROR() {
     Word(";S");
 }
 
+// This was able to be simplified from the 6502 source
+// since we do not set the MSB of the last character in
+// the word name.
 void DefineIDDOT() {
     Colon("ID.");
-    Word("PAD");
-    Word("LIT");
-    Comma(32);
-    Word("CLIT");
-    Comma(0x5f);
-    Word("FILL");
     Word("DUP");
-    Word("PFA");
-    Word("LFA");
-    Word("OVER");
-    Word("-");
-    Word("PAD");
-    Word("SWAP");
-    Word("CMOVE");
-    Word("PAD");
-    Word("COUNT");
-    Word("LIT");
-    Comma(0x1f);
+    Word("C@");
+    Word("CLIT");
+    Comma(nameLengthMask);
     Word("AND");
+    Word("SWAP");
+    Word("1+");
+    Word("SWAP");
     Word("TYPE");
     Word("SPACE");
     Word(";S");
@@ -2214,39 +2206,47 @@ void DefineTRIAD() {
     Word(";S");
 }
 
+// Changed from the 6502 listing to avoid line wrap which
+// was caused by a logic error in the original code.
 void DefineVLIST() {
     Colon("VLIST");
-    Word("LIT");
-    Comma(0x80);
+    Word("C/L");
     Word("OUT");
     Word("!");
     Word("CONTEXT");
     Word("@");
     Word("@");
-    Label("L3706");
+    Label("VLIST1");
+    Word("DUP");
+    Word("C@");
+    Word("LIT");
+    Comma(nameLengthMask);
+    Word("AND");
     Word("OUT");
     Word("@");
+    Word("+");
     Word("C/L");
-    Word(">");
-    ZBranch("L3716");
+    Word("1");
+    Word("-");
+    Word("<");
+    ZBranch("VLIST2");
+    Word("SPACE");
+    Word("SPACE");
+    Branch("VLIST3");
+    Label("VLIST2");
     Word("CR");
     Word("0");
     Word("OUT");
     Word("!");
-    Label("L3716");
+    Label("VLIST3");
     Word("DUP");
     Word("ID.");
-    Word("SPACE");
-    Word("SPACE");
     Word("PFA");
     Word("LFA");
     Word("@");
-    Word("DUP");
+    Word("-DUP");
     Word("0=");
-    Word("?TERMINAL");
-    Word("OR");
-    ZBranch("L3706");
-    Word("DROP");
+    ZBranch("VLIST1");
     Word(";S");
 }
 
