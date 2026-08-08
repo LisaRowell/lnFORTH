@@ -59,6 +59,144 @@ char XKey() {
     return key;
 }
 
+uint8_t XEKey() {
+    char key = XKey();
+    if (key == 27) {
+        key = XKey();
+        if (key == '[') {
+            key = XKey();
+            switch (key) {
+            case 'A':
+                return EKeyUp;
+            case 'B':
+                return EKeyDown;
+            case 'C':
+                return EKeyRight;
+            case 'D':
+                return EKeyLeft;
+            case '1':
+                key = XKey();
+                switch (key) {
+                case '7':
+                    key = XKey();
+                    switch (key) {
+                    case '~':
+                        return EKeyF6;
+                    default:
+                        return EKeyUnknown;
+                    }
+                case '8':
+                    key = XKey();
+                    switch (key) {
+                    case '~':
+                        return EKeyF7;
+                    default:
+                        return EKeyUnknown;
+                    }
+                case '9':
+                    key = XKey();
+                    switch (key) {
+                    case '~':
+                        return EKeyF8;
+                    default:
+                        return EKeyUnknown;
+                    }
+                case '~':
+                    return EKeyHome;
+                default:
+                    return EKeyUnknown;
+                }
+            case '2':
+                key = XKey();
+                switch (key) {
+                case '0':
+                    key = XKey();
+                    switch (key) {
+                    case '~':
+                        return EKeyF9;
+                    default:
+                        return EKeyUnknown;
+                    }
+                case '1':
+                    key = XKey();
+                    switch (key) {
+                    case '~':
+                        return EKeyF10;
+                    default:
+                        return EKeyUnknown;
+                    }
+                case '4':
+                    key = XKey();
+                    switch (key) {
+                    case '~':
+                        return EKeyF12;
+                    default:
+                        return EKeyUnknown;
+                    }
+                case '~':
+                    return EKeyInsert;
+                default:
+                    return EKeyUnknown;
+                }
+            case '3':
+                key = XKey();
+                switch (key) {
+                case '~':
+                    return EKeyDelete;
+                default:
+                    return EKeyUnknown;
+                }
+            case '4':
+                key = XKey();
+                switch (key) {
+                case '~':
+                    return EKeyEnd;
+                default:
+                    return EKeyUnknown;
+                }
+            case '5':
+                key = XKey();
+                switch (key) {
+                case '~':
+                    return EKeyPrior;
+                default:
+                    return EKeyUnknown;
+                }
+            case '6':
+                key = XKey();
+                switch (key) {
+                case '~':
+                    return EKeyNext;
+                default:
+                    return EKeyUnknown;
+                }
+            case '[':
+                key = XKey();
+                switch (key) {
+                case 'A':
+                    return EKeyF1;
+                case 'B':
+                    return EKeyF2;
+                case 'C':
+                    return EKeyF3;
+                case 'D':
+                    return EKeyF4;
+                case 'E':
+                    return EKeyF5;
+                default:
+                    return EKeyUnknown;
+                }
+            default:
+                return EKeyUnknown;
+            }
+        } else {
+            return EKeyUnknown;
+        }
+    } else {
+        return key;
+    }
+}
+
 void XEmit(char character) {
     (void)write(STDIN_FILENO, &character, 1);
 }

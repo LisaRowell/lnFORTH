@@ -83,6 +83,7 @@ enum class Token : cell_t {
     ENCL,
     EMIT,
     KEY,
+    EKEY,
     QTERM,
     MILLIS,
     CR,

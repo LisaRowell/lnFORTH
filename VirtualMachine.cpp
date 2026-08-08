@@ -356,6 +356,15 @@ TokenResult KEY() {
     return TokenResult::OK;
 }
 
+TokenResult EKEY() {
+    CHECK_STACK(0, 1);
+
+    uint8_t key = XEKey();
+    stack[++sp] = (cell_t)key;
+
+    return TokenResult::OK;
+}
+
 TokenResult QTERM() {
     // It's not clear that this functionality is going to be implementable in modern systems.
     // For now, just return false.
@@ -846,6 +855,8 @@ inline TokenResult executeToken(Token token) {
         return EMIT();
     case Token::KEY:
         return KEY();
+    case Token::EKEY:
+        return EKEY();
     case Token::QTERM:
         return QTERM();
     case Token::MILLIS:

@@ -2337,6 +2337,7 @@ void BuildDictionary() {
     Primitive("ENCLOSE", Token::ENCL);
     Primitive("EMIT", Token::EMIT);
     Primitive("KEY", Token::KEY);
+    Primitive("EKEY", Token::EKEY);
     Primitive("?TERMINAL", Token::QTERM);
     Primitive("MILLIS", Token::MILLIS);
     Primitive("CR", Token::CR);
@@ -2398,6 +2399,28 @@ void BuildDictionary() {
     Constant("BUFFERS", NBUFFERS);
     Constant("CELL-MAX", scellMax);
     Constant("UCELL-MAX", cellMax);
+    Constant("K-F1", EKeyF1);
+    Constant("K-F2", EKeyF2);
+    Constant("K-F3", EKeyF3);
+    Constant("K-F4", EKeyF4);
+    Constant("K-F5", EKeyF5);
+    Constant("K-F6", EKeyF6);
+    Constant("K-F7", EKeyF7);
+    Constant("K-F8", EKeyF8);
+    Constant("K-F9", EKeyF9);
+    Constant("K-F10", EKeyF10);
+    Constant("K-F11", EKeyF11);
+    Constant("K-F12", EKeyF12);
+    Constant("K-LEFT", EKeyLeft);
+    Constant("K-RIGHT", EKeyRight);
+    Constant("K-UP", EKeyUp);
+    Constant("K-DOWN", EKeyDown);
+    Constant("K-HOME", EKeyHome);
+    Constant("K-END", EKeyEnd);
+    Constant("K-PRIOR", EKeyPrior);
+    Constant("K-NEXT", EKeyNext);
+    Constant("K-INSERT", EKeyInsert);
+    Constant("K-DELETE", EKeyDelete);
 
     DefinePORIG();
     User("TIB", tibUserIndex);
