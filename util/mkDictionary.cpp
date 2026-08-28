@@ -2250,6 +2250,21 @@ void DefineVLIST() {
     Word(";S");
 }
 
+void DefineUSING() {
+    Colon("USING");
+    Word("FLUSH");
+    Word("BL");
+    Word("WORD");
+    Word("HERE");
+    Word("COUNT");
+    Word("(USING)");
+    Word("0=");
+    Word("LIT");
+    Comma(8);
+    Word("?ERROR");
+    Word(";S");
+}
+
 void DefineCOLD() {
     Colon("COLD");
     Word("SP!");
@@ -2375,6 +2390,7 @@ void BuildDictionary() {
     Primitive("C@", Token::CAT);
     Primitive("!", Token::STORE);
     Primitive("C!", Token::CSTORE);
+    Primitive("(USING)", Token::PUSING);
 
     DefineCOLON();
     DefineSEMICOLON();
@@ -2584,6 +2600,7 @@ void BuildDictionary() {
     DefineINDEX();
     DefineTRIAD();
     DefineVLIST();
+    DefineUSING();
     DefineCOLD();
 
     // The last word defined needs to be pointed to by the VOCABULARY word FORTH. Before we define it,

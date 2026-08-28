@@ -21,6 +21,8 @@
 #include <Arduino.h>
 #include <SD.h>
 #include <SPI.h>
+#include <stddef.h>
+#include <string.h>
 
 #ifdef ARDUINO_TEENSY41
 #define HAS_SD
@@ -29,9 +31,13 @@ constexpr int chipSelect = BUILTIN_SDCARD;
 
 static bool sdCardPresent;
 
+constexpr size_t MAX_FILENAME_LEN = 80;
+static char blkFilename[MAX_FILENAME_LEN + 1];
+
 void XInit() {
     // The 9600 is ignored, but the call is required
     Serial.begin(9600);
+    *blkFilename = 0;
 
 #ifdef HAS_SD
     if (SD.begin(chipSelect)) {
@@ -202,8 +208,8 @@ uint32_t XMillis() {
 }
 
 bool XRead(uint8_t *addr, uint32_t blkDiskOffset, size_t length) {
-    if (sdCardPresent) {
-        File dataFile = SD.open("disk", FILE_READ);
+    if (sdCardPresent && strlen(blkFilename) > 0) {
+        File dataFile = SD.open(blkFilename, FILE_READ);
         if (dataFile) {
             if (!dataFile.seek(blkDiskOffset)) {
                 return false;
@@ -224,8 +230,8 @@ bool XRead(uint8_t *addr, uint32_t blkDiskOffset, size_t length) {
 }
 
 bool XWrite(uint8_t *addr, uint32_t blkDiskOffset, size_t length) {
-    if (sdCardPresent) {
-        File dataFile = SD.open("disk", FILE_WRITE);
+    if (sdCardPresent && strlen(blkFilename) > 0) {
+        File dataFile = SD.open(blkFilename, FILE_WRITE);
         if (dataFile) {
             if (!dataFile.seek(blkDiskOffset)) {
                 return false;
@@ -243,6 +249,22 @@ bool XWrite(uint8_t *addr, uint32_t blkDiskOffset, size_t length) {
     } else {
         return false;
     }
+}
+
+bool XUsing(char *filename, size_t filenameLen) {
+    if (filenameLen > MAX_FILENAME_LEN || filenameLen == 0) {
+        return false;
+    }
+
+    // Needed due to oddities of WORD
+    if (filenameLen == 1 && *filename == 0) {
+        return false;
+    }
+
+    (void)memcpy(blkFilename, filename, filenameLen);
+    *(blkFilename + filenameLen) = 0;
+
+    return true;
 }
 
 char XEnterKey() {

@@ -823,6 +823,17 @@ TokenResult DWRITE() {
     return TokenResult::OK;
 }
 
+TokenResult PUSING() {
+    CHECK_STACK(2, 0);
+
+    cell_t filenameLen = stack[sp--];
+    cell_t filename = stack[sp--];
+    bool result = XUsing((char *)&memory.byte[filename], filenameLen);
+    stack[++sp] = result ? trueValue : falseValue;
+
+    return TokenResult::OK;
+}
+
 TokenResult MON() {
     (void)CR();
 
@@ -949,6 +960,8 @@ inline TokenResult executeToken(Token token) {
         return DREAD();
     case Token::DWRITE:
         return DWRITE();
+    case Token::PUSING:
+        return PUSING();
     case Token::MON:
         return MON();
     default:

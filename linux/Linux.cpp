@@ -21,10 +21,14 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/time.h>
+#include <string.h>
 
 #include <iostream>
 
 #include "../Platform.h"
+
+constexpr size_t MAX_FILENAME_LEN = 80;
+static char blkFilename[MAX_FILENAME_LEN + 1];
 
 static struct termios originalTermios;
 
@@ -46,6 +50,7 @@ static void EnableRawMode() {
 
 void XInit() {
     EnableRawMode();
+    *blkFilename = 0;
 }
 
 char XKey() {
@@ -215,7 +220,11 @@ uint32_t XMillis() {
 }
 
 bool XRead(uint8_t *addr, uint32_t blkDiskOffset, size_t length) {
-    FILE *file = fopen("disk", "r");
+    if (strlen(blkFilename) == 0) {
+        return false;
+    }
+
+    FILE *file = fopen(blkFilename, "r");
     if (file == nullptr) {
         return false;
     }
@@ -237,7 +246,11 @@ bool XRead(uint8_t *addr, uint32_t blkDiskOffset, size_t length) {
 }
 
 bool XWrite(uint8_t *addr, uint32_t blkDiskOffset, size_t length) {
-    int file = open("disk", O_WRONLY);
+    if (strlen(blkFilename) == 0) {
+        return false;
+    }
+
+    int file = open(blkFilename, O_WRONLY);
     if (file < 0) {
         return false;
     }
@@ -254,6 +267,22 @@ bool XWrite(uint8_t *addr, uint32_t blkDiskOffset, size_t length) {
     if (close(file) != 0) {
         return false;
     }
+
+    return true;
+}
+
+bool XUsing(char *filename, size_t filenameLen) {
+    if (filenameLen > MAX_FILENAME_LEN || filenameLen == 0) {
+        return false;
+    }
+
+    // Needed due to oddities of WORD
+    if (filenameLen == 1 && *filename == 0) {
+        return false;
+    }
+
+    (void)memcpy(blkFilename, filename, filenameLen);
+    *(blkFilename + filenameLen) = 0;
 
     return true;
 }

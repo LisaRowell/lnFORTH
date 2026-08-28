@@ -54,6 +54,7 @@ extern void XCR();
 extern uint32_t XMillis();
 extern bool XRead(uint8_t *addr, uint32_t blkDiskOffset, size_t length);
 extern bool XWrite(uint8_t *addr, uint32_t blkDiskOffset, size_t length);
+extern bool XUsing(char *filename, size_t filenameLen);
 extern char XEnterKey();
 extern char XDeleteKey();
 

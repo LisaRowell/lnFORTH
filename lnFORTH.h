@@ -130,6 +130,7 @@ enum class Token : cell_t {
     DODOE,
     DREAD,
     DWRITE,
+    PUSING,
     MON
 };
 
